@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EasyAlgo — Trade Smarter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1220;
+  --panel:#111a2c;
+  --panel-2:#0e1626;
+  --line:#213050;
+  --ink:#E8ECF5;
+  --ink-dim:#8B98B8;
+  --gold:#D4A24E;
+  --gold-dim:#8a6d3a;
+  --up:#3DDC97;
+  --down:#F0576B;
+  --radius:14px;
+  --radius-sm:8px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  -webkit-font-smoothing:antialiased;
+}
+#app{
+  width:100%;
+  max-width:460px;
+  min-height:100vh;
+  background:var(--bg);
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  border-left:1px solid var(--line);
+  border-right:1px solid var(--line);
+}
+h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.screen{display:none; flex-direction:column; flex:1; animation:fade .25s ease;}
+.screen.active{display:flex;}
+@keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+::selection{background:var(--gold); color:#0B1220;}
+
+/* ---------- shared bits ---------- */
+.pad{padding:20px;}
+.btn{
+  border:none; border-radius:var(--radius-sm); padding:14px 18px;
+  font-family:'Inter',sans-serif; font-weight:600; font-size:14.5px;
+  cursor:pointer; width:100%; transition:transform .1s ease, opacity .15s ease;
+}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--gold); color:#1a1204;}
+.btn-primary:hover{opacity:.92;}
+.btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--line);}
+.btn-danger{background:transparent; color:var(--down); border:1px solid #4a1f29;}
+.btn-sm{padding:9px 14px; font-size:13px; width:auto;}
+label{display:block; font-size:12.5px; color:var(--ink-dim); margin-bottom:6px; margin-top:16px;}
+label:first-child{margin-top:0;}
+input, select{
+  width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+  padding:12px 13px; border-radius:var(--radius-sm); font-size:14.5px; font-family:'Inter',sans-serif;
+  outline:none;
+}
+input:focus, select:focus{border-color:var(--gold-dim);}
+.hint{font-size:11.5px; color:var(--ink-dim); margin-top:5px; line-height:1.4;}
+.err{font-size:12.5px; color:var(--down); margin-top:6px; min-height:14px;}
+.toast{
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  background:var(--panel); border:1px solid var(--gold-dim); color:var(--ink);
+  padding:12px 18px; border-radius:10px; font-size:13px; z-index:999;
+  box-shadow:0 8px 24px rgba(0,0,0,.4); max-width:400px; text-align:center;
+  opacity:0; pointer-events:none; transition:opacity .25s ease, bottom .25s ease;
+}
+.toast.show{opacity:1; bottom:28px;}
+.divider{height:1px; background:var(--line); margin:18px 0;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.tag{font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:600; letter-spacing:.2px;}
+.tag-up{background:rgba(61,220,151,.12); color:var(--up);}
+.tag-down{background:rgba(240,87,107,.12); color:var(--down);}
+.tag-gold{background:rgba(212,162,78,.14); color:var(--gold);}
+.tag-dim{background:var(--panel-2); color:var(--ink-dim);}
+.pill-row{display:flex; gap:6px; margin-top:12px;}
+.pill{flex:1; text-align:center; padding:7px 0; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); font-size:12px; color:var(--ink-dim); cursor:pointer;}
+.pill.on{background:var(--gold); color:#1a1204; border-color:var(--gold); font-weight:700;}
+.back-row{display:flex; align-items:center; gap:10px; padding:16px 20px 6px;}
+.back-btn{background:var(--panel); border:1px solid var(--line); width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink); font-size:16px;}
+.screen-title{font-size:17px; font-weight:600;}
+
+/* ---------- auth ---------- */
+#auth-wrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px 26px;}
+.logo-mark{width:52px; height:52px; border-radius:14px; background:linear-gradient(155deg,var(--gold),#8a6d3a); display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; font-size:22px; color:#1a1204; margin-bottom:18px;}
+.brand-line{font-size:24px; font-weight:700; letter-spacing:-.3px;}
+.brand-sub{color:var(--ink-dim); font-size:13.5px; margin-top:4px; margin-bottom:30px;}
+.auth-tabs{display:flex; background:var(--panel-2); border-radius:10px; padding:4px; margin-bottom:22px;}
+.auth-tab{flex:1; text-align:center; padding:9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-dim); cursor:pointer;}
+.auth-tab.on{background:var(--gold); color:#1a1204;}
+.otp-boxes{display:flex; gap:9px; margin-top:6px;}
+.otp-boxes input{text-align:center; font-size:18px; padding:12px 0; font-family:'JetBrains Mono';}
+
+/* ---------- main shell (user) ---------- */
+#shell{flex:1; display:flex; flex-direction:column; display:none;}
+#shell.active{display:flex;}
+.topbar{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line);}
+.profile-corner{display:flex; align-items:center; gap:9px; cursor:pointer;}
+.avatar{width:36px; height:36px; border-radius:10px; background:var(--panel-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono'; font-size:11px; color:var(--gold); font-weight:600;}
+.uid-mini{font-size:11px; color:var(--ink-dim);}
+.uname-mini{font-size:13.5px; font-weight:600;}
+.top-right-icons{display:flex; gap:14px; font-size:18px; color:var(--ink-dim);}
+.main-scroll{flex:1; overflow-y:auto; padding-bottom:90px;}
+.bottom-nav{position:absolute; bottom:0; left:0; right:0; display:flex; border-top:1px solid var(--line); background:var(--panel); padding:9px 10px 12px;}
+.nav-item{flex:1; text-align:center; color:var(--ink-dim); font-size:11px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;}
+.nav-item.on{color:var(--gold);}
+.nav-ico{font-size:19px;}
+
+/* ---------- misc ---------- */
+.list-row{display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--line); cursor:pointer;}
+.list-row:last-child{border-bottom:none;}
+.list-left{display:flex; align-items:center; gap:12px;}
+.ico-box{width:38px; height:38px; border-radius:10px; background:var(--panel-2); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;}
+.section-label{font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-dim); margin:22px 0 10px; font-weight:600;}
+.section-label:first-child{margin-top:0;}
+.strategy-card{margin-bottom:12px;}
+.switch{position:relative; width:42px; height:24px; flex-shrink:0;}
+.switch input{opacity:0; width:0; height:0;}
+.slider{position:absolute; inset:0; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; cursor:pointer; transition:.2s;}
+.slider:before{content:""; position:absolute; width:17px; height:17px; left:2px; top:2px; background:var(--ink-dim); border-radius:50%; transition:.2s;}
+input:checked + .slider{background:rgba(61,220,151,.18); border-color:var(--up);}
+input:checked + .slider:before{transform:translateX(18px); background:var(--up);}
+.locked{opacity:.45; pointer-events:none;}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; color:var(--ink-dim); font-weight:600; font-size:11px; text-transform:uppercase; padding-bottom:8px; letter-spacing:.4px;}
+td{padding:10px 0; border-top:1px solid var(--line);}
+.empty{text-align:center; color:var(--ink-dim); font-size:13px; padding:30px 10px;}
+.modal-bg{position:fixed; inset:0; background:rgba(5,8,15,.72); z-index:200; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal-sheet{width:100%; max-width:460px; background:var(--panel); border-top-left-radius:20px; border-top-right-radius:20px; border:1px solid var(--line); border-bottom:none; padding:22px; max-height:85vh; overflow-y:auto; position:relative;}
+.modal-handle{width:36px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px;}
+.sheet-close{position:absolute; top:16px; right:16px; width:30px; height:30px; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;}
+.social-row{display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line);}
+.social-row:last-child{border-bottom:none;}
+.plan-badge{display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; margin-left:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ AUTH ============ -->
+  <div class="screen active" id="screen-auth">
+    <div id="auth-wrap">
+      <div class="logo-mark">EA</div>
+      <div class="brand-line">EasyAlgo</div>
+      <div class="brand-sub">Signal-driven algo trading, made simple.</div>
+
+      <div class="auth-tabs">
+        <div class="auth-tab on" id="tab-login" onclick="setAuthTab('login')">Log in</div>
+        <div class="auth-tab" id="tab-signup" onclick="setAuthTab('signup')">Create account</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="pane-login">
+        <label>User ID</label>
+        <input id="li-uid" placeholder="e.g. RN0001" autocomplete="off">
+        <label>Password</label>
+        <input id="li-pass" type="password" placeholder="Your password">
+        <div class="err" id="li-err"></div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="doLogin()">Log in</button>
+        <div class="hint" style="text-align:center; margin-top:14px;">New here? Use <b style="color:var(--ink)">Create account</b> above — you'll get a User ID automatically.</div>
+        <div class="hint" style="text-align:center; margin-top:18px;"><span style="color:var(--gold); cursor:pointer;" onclick="openAdminLogin()">Admin login →</span></div>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="pane-signup" style="display:none">
+        <div id="su-step1">
+          <label>Full name</label>
+          <input id="su-name" placeholder="e.g. Rajesh Nayak">
+          <label>Mobile number</label>
+          <input id="su-mobile" placeholder="10-digit mobile number" maxlength="10">
+          <label>Gmail address</label>
+          <input id="su-gmail" placeholder="you@gmail.com">
+          <label>Profile photo <span class="hint" style="margin:0;">(optional)</span></label>
+          <input id="su-photo" type="file" accept="image/*" style="padding:9px;">
+          <div class="err" id="su-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendSignupOtps()">Send OTPs</button>
+        </div>
+
+        <div id="su-step2" style="display:none">
+          <div class="hint" style="margin-bottom:4px;">Demo mode: no real SMS/Gmail is sent — the OTP is shown right here so you can test the flow.</div>
+          <label>Mobile OTP <span class="mono" id="su-otp-mobile-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="su-otp-mobile" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>Gmail OTP <span class="mono" id="su-otp-gmail-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="su-otp-gmail" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>Create password</label>
+          <input id="su-pass" type="password" placeholder="Set a password">
+          <div class="err" id="su-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifySignup()">Verify &amp; create account</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="backToStep1()">Back</button>
+        </div>
+
+        <div id="su-step3" style="display:none; text-align:center; padding-top:10px;">
+          <div style="font-size:38px;">✅</div>
+          <div style="font-weight:700; font-size:17px; margin:10px 0 4px;">Account created</div>
+          <div class="hint">Your User ID</div>
+          <div class="mono" style="font-size:24px; color:var(--gold); font-weight:700; margin:6px 0 18px;" id="su-final-id"></div>
+          <button class="btn btn-primary" onclick="enterShell()">Continue to EasyAlgo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADMIN LOGIN ============ -->
+  <div class="screen" id="screen-admin-login">
+    <div class="back-row">
+      <div class="back-btn" onclick="goto('screen-auth')">←</div>
+      <div class="screen-title">Admin</div>
+    </div>
+    <div class="pad" style="padding-top:8px;">
+
+      <div class="auth-tabs">
+        <div class="auth-tab on" id="adm-tab-login" onclick="setAdminTab('login')">Log in</div>
+        <div class="auth-tab" id="adm-tab-create" onclick="setAdminTab('create')">Create account</div>
+      </div>
+
+      <!-- ADMIN LOG IN -->
+      <div id="adm-pane-login">
+        <label>Username</label>
+        <input id="adl-username" placeholder="Admin username">
+        <label>Password</label>
+        <input id="adl-pass" type="password" placeholder="Password">
+        <div class="err" id="adl-err"></div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="doAdminLogin()">Log in</button>
+        <div class="hint" style="text-align:center; margin-top:14px;"><span style="color:var(--gold); cursor:pointer;" onclick="openAdminForgot()">Forgot password?</span></div>
+      </div>
+
+      <!-- ADMIN CREATE ACCOUNT -->
+      <div id="adm-pane-create" style="display:none">
+        <div id="adc-step1">
+          <label>Username</label>
+          <input id="adc-username" placeholder="Choose an admin username">
+          <label>Mobile number</label>
+          <input id="adc-mobile" placeholder="Backend-registered mobile number" maxlength="10">
+          <label>Password</label>
+          <input id="adc-pass" type="password" placeholder="Set a password">
+          <div class="err" id="adc-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendAdminCreateOtp()">Send OTP</button>
+          <div class="hint" style="margin-top:10px;">OTP is only sent if this mobile number matches the number registered in the backend — this is how only the real admin can ever create this account.</div>
+        </div>
+        <div id="adc-step2" style="display:none">
+          <div class="hint">Demo mode: OTP shown right here.</div>
+          <label>Enter OTP <span class="mono" id="adc-otp-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="adc-otp" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <div class="err" id="adc-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifyAdminCreateOtp()">Verify &amp; create account</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="document.getElementById('adc-step1').style.display='block'; document.getElementById('adc-step2').style.display='none';">Back</button>
+        </div>
+        <div id="adc-step3" style="display:none; text-align:center; padding-top:10px;">
+          <div style="font-size:38px;">✅</div>
+          <div style="font-weight:700; font-size:17px; margin:10px 0 4px;">Admin account created</div>
+          <div class="hint" style="margin-bottom:16px;">You can now log in with your username and password — no OTP needed each time.</div>
+          <button class="btn btn-primary" onclick="setAdminTab('login')">Go to log in</button>
+        </div>
+      </div>
+
+      <!-- ADMIN FORGOT PASSWORD -->
+      <div id="adm-pane-forgot" style="display:none">
+        <div id="adf-step1">
+          <div class="hint" style="margin-bottom:6px;">Enter the registered admin mobile number — if it matches the backend record, we'll send an OTP.</div>
+          <label>Registered mobile number</label>
+          <input id="adf-mobile" placeholder="Mobile number" maxlength="10">
+          <div class="err" id="adf-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendAdminResetOtp()">Send OTP</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="closeAdminForgot()">Back to log in</button>
+        </div>
+        <div id="adf-step2" style="display:none">
+          <label>Enter OTP <span class="mono" id="adf-otp-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="adf-otp" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>New password</label>
+          <input id="adf-newpass" type="password" placeholder="Set a new password">
+          <div class="err" id="adf-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifyAdminResetOtp()">Reset password</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ USER SHELL ============ -->
+
+  <div id="shell">
+    <div class="topbar">
+      <div class="profile-corner" onclick="openProfile()">
+        <div class="avatar" id="topbar-avatar">--</div>
+        <div>
+          <div class="uname-mini" id="topbar-name">—</div>
+          <div class="uid-mini" id="topbar-uid">—</div>
+        </div>
+      </div>
+      <div class="top-right-icons">
+        <span onclick="openSheet('sheet-help')">🛟</span>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+      <!-- ---- HOME ---- -->
+      <div class="screen active" id="tab-home" data-tab="home">
+        <div class="pad">
+          <div class="hint">Welcome back</div>
+          <h2 id="home-name" style="font-size:19px; margin-bottom:16px;">—</h2>
+
+          <div class="card">
+            <div class="row">
+              <div class="hint" style="margin:0;">Account value</div>
+              <span class="tag" id="home-trading-tag">—</span>
+            </div>
+            <div class="mono" style="font-size:24px; font-weight:700; margin-top:6px;" id="home-account-value">₹0</div>
+            <div class="divider"></div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1;">
+                <div class="hint">Net margin used</div>
+                <div class="mono" style="font-size:15px; font-weight:600; margin-top:4px;" id="home-net-margin">₹0</div>
+              </div>
+              <div style="flex:1;">
+                <div class="hint">Total uPNL</div>
+                <div class="mono" style="font-size:15px; font-weight:700; margin-top:4px;" id="home-upnl">₹0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-label">Positions / orders</div>
+          <div id="home-positions"></div>
+        </div>
+      </div>
+
+      <!-- ---- STRATEGY ---- -->
+      <div class="screen" id="tab-strategy" data-tab="strategy">
+        <div class="pad">
+          <h2 style="font-size:19px;">Strategy</h2>
+          <div class="hint" style="margin-bottom:6px;">Turn on the algos you want running. Live execution needs an active Pro plan.</div>
+          <div id="strategy-lock-banner" style="display:none;" class="card" >
+            <div class="row">
+              <div style="font-size:13px;"><b style="color:var(--down)">Trading is bonded.</b><br><span class="hint" style="margin:0;">Your Pro plan has ended — recharge to resume live trading.</span></div>
+              <button class="btn btn-primary btn-sm" onclick="openSheet('sheet-pro')">Recharge</button>
+            </div>
+          </div>
+          <div class="section-label">Your strategies</div>
+          <div id="strategy-list"></div>
+        </div>
+      </div>
+
+      <!-- ---- SETTINGS ---- -->
+      <div class="screen" id="tab-settings" data-tab="settings">
+        <div class="pad">
+          <h2 style="font-size:19px;">Settings</h2>
+
+          <div class="section-label">Delta Exchange API</div>
+          <div class="card">
+            <div class="row">
+              <div class="hint" style="margin:0;">Connection status</div>
+              <span class="tag tag-dim" id="delta-status">Not connected</span>
+            </div>
+            <div class="divider"></div>
+            <label>API key</label>
+            <input id="delta-api" placeholder="Delta Exchange API key">
+            <label>API secret</label>
+            <input id="delta-secret" type="password" placeholder="Delta Exchange API secret">
+            <div class="hint" style="margin-top:6px;">Used only to place/track trades on your own Delta Exchange account. Anyone with these keys can trade on your account, so keep them private.</div>
+            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="saveDeltaKeys()">Save API keys</button>
+            <div class="hint" id="delta-saved" style="text-align:center;"></div>
+          </div>
+
+          <div class="section-label">Strategy Builder</div>
+          <div class="card" style="margin-bottom:12px;">
+            <div class="list-row" onclick="openStrategyBuilder()" style="border-bottom:none; padding:6px 0;">
+              <div class="list-left"><div class="ico-box">➕</div><div style="font-weight:600;">New strategy</div></div><div>›</div>
+            </div>
+          </div>
+          <div class="hint" style="margin:-4px 0 8px;" id="settings-strategy-hint">Tap a strategy below to edit it.</div>
+          <div class="card" id="settings-strategy-list"></div>
+
+          <div class="section-label">Records</div>
+          <div class="card">
+            <div class="list-row" onclick="openTradeHistory()">
+              <div class="list-left"><div class="ico-box">🧾</div><div>Trade history</div></div><div>›</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- TRADE HISTORY ---- -->
+      <div class="screen" id="tab-history" data-tab="history">
+        <div class="back-row"><div class="back-btn" onclick="setTab('settings')">←</div><div class="screen-title">Trade history</div></div>
+        <div class="pad" style="padding-top:8px;">
+          <div class="card">
+            <label>From</label>
+            <input id="th-from" type="date">
+            <label>To</label>
+            <input id="th-to" type="date">
+            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="applyTradeHistoryFilter()">Show trades</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:8px;" onclick="clearTradeHistoryFilter()">Clear filter</button>
+          </div>
+          <div class="card" style="margin-top:14px;">
+            <div class="row"><div class="hint" style="margin:0;">Trades in range</div><div class="mono" id="th-count" style="font-weight:700;">0</div></div>
+            <div class="divider" style="margin:8px 0;"></div>
+            <div class="row"><div class="hint" style="margin:0;">Net P&amp;L</div><div class="mono" id="th-net" style="font-weight:700;">₹0</div></div>
+          </div>
+          <div class="section-label">Trades</div>
+          <div id="th-list"></div>
+        </div>
+      </div>
+
+      <!-- ---- STRATEGY BUILDER ---- -->
+      <div class="screen" id="tab-strategy-builder" data-tab="strategy-builder">
+        <div class="back-row"><div class="back-btn" onclick="setTab('settings')">←</div><div class="screen-title" id="sb-title">New strategy</div></div>
+        <div class="pad" style="padding-top:8px;">
+
+          <label>Strategy name</label>
+          <input id="sb-name" placeholder="e.g. My Supertrend Scalper">
+
+          <label>Coin</label>
+          <input id="sb-coin-search" placeholder="Search — BTC, ETH, SOL…" oninput="renderCoinOptions()">
+          <div class="hint" style="margin-top:6px;">Selected: <span class="mono" id="sb-coin-selected" style="color:var(--gold);">None</span></div>
+          <div class="card" style="margin-top:8px; max-height:180px; overflow-y:auto; padding:6px 10px;" id="sb-coin-list"></div>
+
+          <label style="margin-top:20px;">Indicators <span class="hint" style="margin:0;">(select any number)</span></label>
+          <div class="card" id="sb-indicators" style="padding:6px 10px;"></div>
+
+          <label>Timeframe</label>
+          <select id="sb-timeframe">
+            <option>1 min</option><option>3 min</option><option>5 min</option><option>15 min</option>
+            <option>30 min</option><option>1 hour</option><option>4 hour</option><option>1 day</option>
+          </select>
+
+          <div class="section-label" style="margin-top:22px;">Entry</div>
+          <div class="card">
+            <div class="hint" style="margin-bottom:10px;">e.g. select Supertrend — when a candle closes crossing the Supertrend line and it flips red→green, that's the confirmation; entry is taken at the start of whichever candle you pick below.</div>
+            <label style="margin-top:0;">Confirm with indicator</label>
+            <select id="entry-indicator">
+              <option value="">— select indicator —</option>
+              <option value="Supertrend">Supertrend</option>
+              <option value="EMA">EMA</option>
+              <option value="SMA (Moving Average)">SMA (Moving Average)</option>
+              <option value="MACD">MACD</option>
+              <option value="RSI">RSI</option>
+              <option value="Bollinger Bands">Bollinger Bands</option>
+              <option value="VWAP">VWAP</option>
+              <option value="Stochastic">Stochastic</option>
+              <option value="ADX">ADX</option>
+              <option value="Parabolic SAR">Parabolic SAR</option>
+            </select>
+            <label>Enter on candle #</label>
+            <select id="entry-candle-num">
+              <option value="1">1st candle after confirmation</option>
+              <option value="2">2nd candle after confirmation</option>
+              <option value="3">3rd candle after confirmation</option>
+              <option value="4">4th candle after confirmation</option>
+              <option value="5">5th candle after confirmation</option>
+            </select>
+
+            <label>Time-based entry <span class="hint" style="margin:0;">(optional — add as many as you like)</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="time" id="entry-time-input" style="flex:1;">
+              <button class="btn btn-ghost btn-sm" style="width:auto; padding:10px 14px;" onclick="addRuleTime('entry')">+ Add</button>
+            </div>
+            <div id="entry-times-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+
+            <div class="divider"></div>
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">24-hour High/Low breakout entry</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">Enters as soon as price cuts the rolling 24-hour high or low.</div></div>
+              <label class="switch"><input type="checkbox" id="entry-24h" onchange="toggle24hRow('entry')"><span class="slider"></span></label>
+            </div>
+            <div id="entry-24h-row" style="display:none; margin-top:10px;">
+              <label style="margin-top:0;">24-hour window resets at</label>
+              <input type="time" id="entry-24h-reset">
+            </div>
+          </div>
+
+          <div class="section-label" style="margin-top:22px;">Exit</div>
+          <div class="card">
+            <div class="hint" style="margin-bottom:10px;">Same rule options as Entry — set how this strategy should close an open trade.</div>
+            <label style="margin-top:0;">Confirm with indicator</label>
+            <select id="exit-indicator">
+              <option value="">— select indicator —</option>
+              <option value="Supertrend">Supertrend</option>
+              <option value="EMA">EMA</option>
+              <option value="SMA (Moving Average)">SMA (Moving Average)</option>
+              <option value="MACD">MACD</option>
+              <option value="RSI">RSI</option>
+              <option value="Bollinger Bands">Bollinger Bands</option>
+              <option value="VWAP">VWAP</option>
+              <option value="Stochastic">Stochastic</option>
+              <option value="ADX">ADX</option>
+              <option value="Parabolic SAR">Parabolic SAR</option>
+            </select>
+            <label>Exit on candle #</label>
+            <select id="exit-candle-num">
+              <option value="1">1st candle after confirmation</option>
+              <option value="2">2nd candle after confirmation</option>
+              <option value="3">3rd candle after confirmation</option>
+              <option value="4">4th candle after confirmation</option>
+              <option value="5">5th candle after confirmation</option>
+            </select>
+
+            <label>Time-based exit <span class="hint" style="margin:0;">(optional — add as many as you like)</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="time" id="exit-time-input" style="flex:1;">
+              <button class="btn btn-ghost btn-sm" style="width:auto; padding:10px 14px;" onclick="addRuleTime('exit')">+ Add</button>
+            </div>
+            <div id="exit-times-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+
+            <div class="divider"></div>
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">24-hour High/Low breakout exit</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">Exits as soon as price cuts the rolling 24-hour high or low.</div></div>
+              <label class="switch"><input type="checkbox" id="exit-24h" onchange="toggle24hRow('exit')"><span class="slider"></span></label>
+            </div>
+            <div id="exit-24h-row" style="display:none; margin-top:10px;">
+              <label style="margin-top:0;">24-hour window resets at</label>
+              <input type="time" id="exit-24h-reset">
+            </div>
+
+            <div class="divider"></div>
+            <label style="margin-top:0;">Take profit %</label>
+            <input type="number" id="exit-tp-pct" placeholder="e.g. 70">
+            <label>Stop loss %</label>
+            <input type="number" id="exit-sl-pct" placeholder="e.g. 50">
+          </div>
+
+          <div class="card" style="margin-top:12px;">
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">Auto reverse (both direction)</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">On an opposite signal, the open trade closes and a new trade opens in the reverse direction — e.g. Supertrend flips green→red: long closes, short opens at the next candle.</div></div>
+              <label class="switch"><input type="checkbox" id="sb-auto-reverse"><span class="slider"></span></label>
+            </div>
+          </div>
+
+          <label style="margin-top:20px;">Trend mood</label>
+          <select id="sb-mood">
+            <option value="buy">Buy signal only (Long)</option>
+            <option value="sell">Sell signal only (Short)</option>
+            <option value="both">Both signals (Long &amp; Short)</option>
+          </select>
+
+          <label>Lot size</label>
+          <input id="sb-lotsize" type="number" placeholder="e.g. 1">
+
+          <div class="err" id="sb-err"></div>
+          <button class="btn btn-primary" style="margin-top:18px;" onclick="saveCustomStrategy()">Save strategy</button>
+          <button class="btn btn-danger" style="margin-top:10px; display:none;" id="sb-delete-btn" onclick="deleteCustomStrategy()">Delete strategy</button>
+        </div>
+      </div>
+
+      <!-- ---- PROFILE ---- -->
+      <div class="screen" id="tab-profile" data-tab="profile">
+        <div class="back-row"><div class="back-btn" onclick="closeProfile()">←</div><div class="screen-title">Profile</div></div>
+        <div class="pad" style="padding-top:8px;">
+          <div class="card" style="text-align:center;">
+            <div style="position:relative; width:76px; margin:0 auto 12px;">
+              <div class="avatar" style="width:76px; height:76px; font-size:20px; cursor:pointer;" id="profile-avatar" onclick="openSheet('sheet-photo')">--</div>
+              <div onclick="openSheet('sheet-photo')" style="position:absolute; bottom:-3px; right:-3px; width:28px; height:28px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; border:2px solid var(--panel);">✏️</div>
+            </div>
+            <div style="font-weight:700; font-size:17px;" id="profile-name">—</div>
+            <div class="mono" style="color:var(--gold); margin-top:4px;" id="profile-uid">—</div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:14px;" onclick="openSheet('sheet-photo')">Change photo</button>
+            <input type="file" id="profile-photo-camera" accept="image/*" capture="environment" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;" onchange="handleProfilePhoto(this)">
+            <input type="file" id="profile-photo-gallery" accept="image/*" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;" onchange="handleProfilePhoto(this)">
+          </div>
+          <div class="section-label">Contact details</div>
+          <div class="card">
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Mobile number</div><div id="profile-mobile">—</div></div>
+            <div class="divider" style="margin:2px 0;"></div>
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Gmail</div><div id="profile-gmail" style="word-break:break-all; text-align:right; max-width:60%;">—</div></div>
+            <div class="divider" style="margin:2px 0;"></div>
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Joined</div><div id="profile-joined">—</div></div>
+          </div>
+          <div class="section-label">Plan</div>
+          <div class="card">
+            <div class="row"><div class="hint" style="margin:0;">Current plan</div><div id="profile-plan">—</div></div>
+          </div>
+          <div class="section-label">More</div>
+          <div class="card">
+            <div class="list-row" onclick="openSheet('sheet-pro')"><div class="list-left"><div class="ico-box">⭐</div><div>Pay for Pro</div></div><div>›</div></div>
+            <div class="list-row" onclick="openSheet('sheet-refer')"><div class="list-left"><div class="ico-box">🎁</div><div>Refer &amp; earn</div></div><div>›</div></div>
+            <div class="list-row" onclick="openSheet('sheet-help')"><div class="list-left"><div class="ico-box">🛟</div><div>Help &amp; support</div></div><div>›</div></div>
+          </div>
+          <div style="height:16px;"></div>
+          <button class="btn btn-danger" onclick="logout()">Log out</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item on" id="nav-home" onclick="setTab('home')"><div class="nav-ico">🏠</div>Home</div>
+      <div class="nav-item" id="nav-strategy" onclick="setTab('strategy')"><div class="nav-ico">📈</div>Strategy</div>
+      <div class="nav-item" id="nav-settings" onclick="setTab('settings')"><div class="nav-ico">⚙️</div>Settings</div>
+    </div>
+  </div>
+
+  <!-- ============ ADMIN SHELL ============ -->
+  <div class="screen" id="screen-admin">
+    <div class="topbar">
+      <div>
+        <div class="uname-mini">Admin panel</div>
+        <div class="uid-mini" id="admin-topbar-line">—</div>
+      </div>
+      <div class="top-right-icons"><span onclick="adminLogout()" style="font-size:13px; color:var(--down); cursor:pointer;">Log out</span></div>
+    </div>
+    <div class="main-scroll" style="padding-bottom:20px;">
+      <div class="pad">
+        <div style="display:flex; gap:10px;">
+          <div class="card" style="flex:1;"><div class="hint">Total users</div><div style="font-size:22px; font-weight:700; margin-top:6px;" id="adm-total-users">0</div></div>
+          <div class="card" style="flex:1;"><div class="hint">Pro plan active</div><div style="font-size:22px; font-weight:700; margin-top:6px;" id="adm-pro-users">0</div></div>
+        </div>
+
+        <div class="section-label">Search user</div>
+        <div class="card">
+          <input id="adm-search" placeholder="Enter User ID, e.g. RN0001" oninput="renderAdminUserList()">
+        </div>
+
+        <div class="section-label">All users</div>
+        <div class="card" id="adm-user-list"></div>
+
+        <div class="row" style="margin-top:22px;">
+          <div class="section-label" style="margin:0;">Help &amp; support</div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleHelpEdit()" id="lk-edit-toggle">Edit</button>
+        </div>
+        <div class="card" id="lk-preview">
+          <!-- filled by renderAdminHelpPreview() -->
+        </div>
+        <div class="card" id="lk-edit-form" style="display:none;">
+          <div class="hint" style="margin-bottom:2px;">Paste the exact link for each. Leave blank to hide it from users.</div>
+          <label>Gmail (support email)</label><input id="lk-gmail" placeholder="support@yourdomain.com">
+          <label>YouTube</label><input id="lk-youtube" placeholder="https://youtube.com/@yourchannel">
+          <label>Instagram</label><input id="lk-insta" placeholder="https://instagram.com/yourhandle">
+          <label>Facebook</label><input id="lk-fb" placeholder="https://facebook.com/yourpage">
+          <label>Telegram</label><input id="lk-tg" placeholder="https://t.me/yourchannel">
+          <label>WhatsApp channel</label><input id="lk-wa" placeholder="https://whatsapp.com/channel/xxxx">
+          <button class="btn btn-primary btn-sm" style="width:100%; margin-top:16px;" onclick="saveLinks()">Save links</button>
+          <div class="hint" id="lk-saved" style="text-align:center;"></div>
+        </div>
+
+        <div class="section-label">Payment / merchant settings</div>
+        <div class="card">
+          <div class="row">
+            <div>
+              <div style="font-weight:600; font-size:14px;">Pro plan monetization</div>
+              <div class="hint" style="margin:2px 0 0;">Off = every feature is free for all users</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="pay-enable" onchange="renderAdminSummary()"><span class="slider"></span></label>
+          </div>
+          <div class="divider"></div>
+          <label>Merchant API key</label><input id="pay-api" placeholder="pk_live_xxxxxxxx">
+          <label>Merchant secret key</label><input id="pay-secret" type="password" placeholder="sk_live_xxxxxxxx">
+          <label>Webhook URL</label><input id="pay-webhook" placeholder="https://yourdomain.com/payment/webhook">
+          <label>UPI VPA / payout ID</label><input id="pay-vpa" placeholder="yourbusiness@upi">
+          <label>Pro plan price (₹ / month)</label><input id="pay-price" type="number" placeholder="499">
+          <div class="hint" style="margin-top:6px;">Demo only — in production, secret keys and webhook handling must live on your server, never in a page users can open.</div>
+          <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="savePayment()">Save payment settings</button>
+          <div class="hint" id="pay-saved" style="text-align:center;"></div>
+        </div>
+
+        <div class="section-label">Admin credentials</div>
+        <div class="card">
+          <label>Change admin password</label><input id="adm-newpass" type="password" placeholder="New admin password">
+          <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:12px;" onclick="changeAdminPass()">Update password</button>
+          <div class="hint" id="adm-pass-saved" style="text-align:center;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ SHEETS (modals) ============ -->
+<div class="modal-bg" id="modal-bg" onclick="closeAllSheets(event)">
+
+  <div class="modal-sheet" id="sheet-help" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Help &amp; support</h3>
+    <div class="hint" style="margin-bottom:10px;">Reach us on any of these — kept up to date by the EasyAlgo team.</div>
+    <div id="help-links-render"></div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-refer" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Refer &amp; earn</h3>
+    <div class="hint" style="margin-bottom:14px;">Share your code — friends who join with it get you both rewarded.</div>
+    <div class="card" style="text-align:center;">
+      <div class="hint">Your referral code</div>
+      <div class="mono" style="font-size:22px; color:var(--gold); font-weight:700; margin:6px 0;" id="refer-code">—</div>
+    </div>
+    <div class="section-label">Invite via</div>
+    <div class="card">
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('whatsapp')"><div class="ico-box">💬</div><div>WhatsApp</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('telegram')"><div class="ico-box">✈️</div><div>Telegram</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('sms')"><div class="ico-box">✉️</div><div>Messages / SMS</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('copy')"><div class="ico-box">🔗</div><div>Copy invite link</div></div>
+    </div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-pro" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Pay for Pro</h3>
+    <div id="pro-body"></div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-photo" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:14px;">Profile photo</h3>
+    <div class="card">
+      <label class="list-row" for="profile-photo-camera" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">📷</div><div>Take photo</div></div><div>›</div>
+      </label>
+      <label class="list-row" for="profile-photo-gallery" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">🖼️</div><div>Choose from gallery</div></div><div>›</div>
+      </label>
+      <div class="list-row" onclick="removeProfilePhoto()" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">🗑️</div><div style="color:var(--down);">Remove photo</div></div><div>›</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-userdetail" style="display:none; max-height:88vh;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <div id="userdetail-body"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= STATE (in-memory demo store — a production build would use a real backend/DB) ================= */
+let db = {
+  users: [],        // {id,name,mobile,gmail,password,joined,proUntil,strategies:{...},photo:null}
+  nextLoginNo: 1,
+  admin: { created:false, username:'', mobile:'', password:'' },
+  links: { gmail:'', youtube:'', insta:'', fb:'', tg:'', wa:'' },
+  payment: { enabled:false, api:'', secret:'', vpa:'', webhook:'', price:499 }
+};
+let session = { userId: null, pendingSignup: null, pendingAdminOtp: null, pendingAdminCreate:null, pendingAdminReset:null, editingStrategy:null, backtestPeriod:{}, builderTimes:{entry:[],exit:[]} };
+const ADMIN_MOBILE = '9016334157'; // backend-registered admin number — hardcoded server-side in a real deployment
+const COIN_LIST = [
+  {sym:'BTCUSDT', name:'Bitcoin',  price:65000},
+  {sym:'ETHUSDT', name:'Ethereum', price:3400},
+  {sym:'SOLUSDT', name:'Solana',   price:150},
+  {sym:'BNBUSDT', name:'BNB',      price:580},
+  {sym:'XRPUSDT', name:'XRP',      price:0.55},
+  {sym:'ADAUSDT', name:'Cardano',  price:0.45},
+  {sym:'DOGEUSDT',name:'Dogecoin', price:0.15},
+  {sym:'MATICUSDT',name:'Polygon', price:0.75},
+  {sym:'DOTUSDT', name:'Polkadot', price:6.5},
+  {sym:'LTCUSDT', name:'Litecoin', price:85},
+  {sym:'AVAXUSDT',name:'Avalanche',price:35},
+  {sym:'LINKUSDT',name:'Chainlink',price:14},
+  {sym:'TRXUSDT', name:'TRON',     price:0.12},
+  {sym:'ATOMUSDT',name:'Cosmos',   price:8},
+];
+const INDICATOR_LIST = ['Supertrend','EMA','SMA (Moving Average)','MACD','RSI','Bollinger Bands','VWAP','Stochastic','ADX','Parabolic SAR'];
+
+
+/* ================= helpers ================= */
+function toast(msg, ms=3200){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms);
+}
+function goto(id){
+  document.querySelectorAll('#app > .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function genOtp(){ return String(Math.floor(1000+Math.random()*9000)); }
+function initials(name){
+  return name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,3) || 'US';
+}
+function makeUserId(name){
+  const pad = String(db.nextLoginNo).padStart(4,'0');
+  return initials(name) + pad;
+}
+function findUser(id){ return db.users.find(u=>u.id.toLowerCase()===id.toLowerCase()); }
+function currentUser(){ return findUser(session.userId); }
+function fmtDate(d){ return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function daysLeft(u){
+  if(!u.proUntil) return 0;
+  return Math.max(0, Math.ceil((u.proUntil - Date.now())/86400000));
+}
+function isProActive(u){ return !db.payment.enabled || daysLeft(u) > 0; }
+/* when monetization is off, every account behaves as fully unlocked */
+
+/* ================= AUTH: tabs ================= */
+function setAuthTab(which){
+  document.getElementById('tab-login').classList.toggle('on', which==='login');
+  document.getElementById('tab-signup').classList.toggle('on', which==='signup');
+  document.getElementById('pane-login').style.display = which==='login' ? 'block':'none';
+  document.getElementById('pane-signup').style.display = which==='signup' ? 'block':'none';
+}
+
+/* ================= SIGNUP flow ================= */
+function sendSignupOtps(){
+  const name=document.getElementById('su-name').value.trim();
+  const mobile=document.getElementById('su-mobile').value.trim();
+  const gmail=document.getElementById('su-gmail').value.trim();
+  const err=document.getElementById('su-err1'); err.textContent='';
+  if(!name){ err.textContent='Enter your full name.'; return; }
+  if(!/^\d{10}$/.test(mobile)){ err.textContent='Enter a valid 10-digit mobile number.'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)){ err.textContent='Enter a valid Gmail address.'; return; }
+  if(db.users.some(u=>u.mobile===mobile)){ err.textContent='This mobile number is already registered — log in instead.'; return; }
+  const otpM=genOtp(), otpG=genOtp();
+  const proceed=(photo)=>{
+    session.pendingSignup={name,mobile,gmail,otpM,otpG,photo};
+    document.getElementById('su-step1').style.display='none';
+    document.getElementById('su-step2').style.display='block';
+    document.getElementById('su-otp-mobile-hint').textContent='(demo: '+otpM+')';
+    document.getElementById('su-otp-gmail-hint').textContent='(demo: '+otpG+')';
+    toast(`Demo OTPs — Mobile: ${otpM}  ·  Gmail: ${otpG}`, 6000);
+  };
+  const file=document.getElementById('su-photo').files[0];
+  if(file){
+    const reader=new FileReader();
+    reader.onload=()=>proceed(reader.result);
+    reader.readAsDataURL(file);
+  } else { proceed(null); }
+}
+function backToStep1(){
+  document.getElementById('su-step1').style.display='block';
+  document.getElementById('su-step2').style.display='none';
+}
+function verifySignup(){
+  const p=session.pendingSignup; const err=document.getElementById('su-err2'); err.textContent='';
+  const om=document.getElementById('su-otp-mobile').value.trim();
+  const og=document.getElementById('su-otp-gmail').value.trim();
+  const pass=document.getElementById('su-pass').value;
+  if(om!==p.otpM){ err.textContent='Mobile OTP is incorrect.'; return; }
+  if(og!==p.otpG){ err.textContent='Gmail OTP is incorrect.'; return; }
+  if(!pass || pass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  const id=makeUserId(p.name);
+  const user={ id, name:p.name, mobile:p.mobile, gmail:p.gmail, password:pass, photo:p.photo||null,
+    joined:Date.now(), proUntil:null, deltaApi:'', deltaSecret:'', positions:{},
+    customStrategies: [], tradeHistory:[] };
+  user.tradeHistory = generateTradeHistory(user);
+  db.users.push(user); db.nextLoginNo++;
+  document.getElementById('su-final-id').textContent=id;
+  document.getElementById('su-step2').style.display='none';
+  document.getElementById('su-step3').style.display='block';
+  session.userId=id;
+}
+function enterShell(){
+  ['su-step1','su-step3'].forEach(x=>document.getElementById(x).style.display= x==='su-step1'?'block':'none');
+  document.getElementById('su-step2').style.display='none';
+  document.getElementById('su-name').value=document.getElementById('su-mobile').value=document.getElementById('su-gmail').value='';
+  document.getElementById('su-photo').value='';
+  renderShell();
+  document.getElementById('screen-auth').classList.remove('active');
+  document.getElementById('shell').classList.add('active');
+}
+
+/* ================= LOGIN ================= */
+function doLogin(){
+  const uid=document.getElementById('li-uid').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const err=document.getElementById('li-err'); err.textContent='';
+  const u=findUser(uid);
+  if(!u || u.password!==pass){ err.textContent='Incorrect User ID or password.'; return; }
+  session.userId=u.id;
+  document.getElementById('li-uid').value=document.getElementById('li-pass').value='';
+  renderShell();
+  document.getElementById('screen-auth').classList.remove('active');
+  document.getElementById('shell').classList.add('active');
+}
+function logout(){
+  document.getElementById('shell').classList.remove('active');
+  session.userId=null;
+  clearInterval(homeTicker);
+  goto('screen-auth'); setAuthTab('login');
+  document.getElementById('screen-auth').classList.add('active');
+}
+
+/* ================= ADMIN AUTH ================= */
+function openAdminLogin(){
+  goto('screen-admin-login');
+  setAdminTab('login');
+}
+function setAdminTab(which){
+  document.getElementById('adm-tab-login').classList.toggle('on', which==='login');
+  document.getElementById('adm-tab-create').classList.toggle('on', which==='create');
+  document.getElementById('adm-pane-login').style.display = which==='login' ? 'block':'none';
+  document.getElementById('adm-pane-create').style.display = which==='create' ? 'block':'none';
+  document.getElementById('adm-pane-forgot').style.display = 'none';
+  if(which==='create'){
+    document.getElementById('adc-step1').style.display='block';
+    document.getElementById('adc-step2').style.display='none';
+    document.getElementById('adc-step3').style.display='none';
+  }
+}
+
+/* -- create account (only works for the backend-registered mobile number) -- */
+function sendAdminCreateOtp(){
+  const username=document.getElementById('adc-username').value.trim();
+  const mobile=document.getElementById('adc-mobile').value.trim();
+  const pass=document.getElementById('adc-pass').value;
+  const err=document.getElementById('adc-err1'); err.textContent='';
+  if(db.admin.created){ err.textContent='An admin account already exists — please log in instead.'; return; }
+  if(!username){ err.textContent='Enter a username.'; return; }
+  if(!/^\d{10}$/.test(mobile)){ err.textContent='Enter a valid 10-digit mobile number.'; return; }
+  if(!pass || pass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  if(mobile!==ADMIN_MOBILE){ err.textContent='This mobile number is not the one registered in the backend — no OTP will be sent.'; return; }
+  const otp=genOtp();
+  session.pendingAdminCreate={username, mobile, pass, otp};
+  document.getElementById('adc-step1').style.display='none';
+  document.getElementById('adc-step2').style.display='block';
+  document.getElementById('adc-otp-hint').textContent='(demo: '+otp+')';
+  toast(`Demo OTP sent to ${mobile}: ${otp}`, 6000);
+}
+function verifyAdminCreateOtp(){
+  const p=session.pendingAdminCreate; const err=document.getElementById('adc-err2'); err.textContent='';
+  const otp=document.getElementById('adc-otp').value.trim();
+  if(!p || otp!==p.otp){ err.textContent='Incorrect OTP.'; return; }
+  db.admin={ created:true, username:p.username, mobile:p.mobile, password:p.pass };
+  document.getElementById('adc-otp').value='';
+  document.getElementById('adc-step2').style.display='none';
+  document.getElementById('adc-step3').style.display='block';
+}
+
+/* -- normal login: username + password only, no OTP -- */
+function doAdminLogin(){
+  const username=document.getElementById('adl-username').value.trim();
+  const pass=document.getElementById('adl-pass').value;
+  const err=document.getElementById('adl-err'); err.textContent='';
+  if(!db.admin.created){ err.textContent='No admin account yet — create one first.'; return; }
+  if(username!==db.admin.username || pass!==db.admin.password){ err.textContent='Incorrect username or password.'; return; }
+  document.getElementById('adl-username').value=document.getElementById('adl-pass').value='';
+  renderAdmin();
+  goto('screen-admin');
+}
+
+/* -- forgot password: OTP only goes to the backend-registered number -- */
+function openAdminForgot(){
+  document.getElementById('adm-pane-login').style.display='none';
+  document.getElementById('adm-pane-create').style.display='none';
+  document.getElementById('adm-pane-forgot').style.display='block';
+  document.getElementById('adf-step1').style.display='block';
+  document.getElementById('adf-step2').style.display='none';
+}
+function closeAdminForgot(){ setAdminTab('login'); }
+function sendAdminResetOtp(){
+  const mobile=document.getElementById('adf-mobile').value.trim();
+  const err=document.getElementById('adf-err1'); err.textContent='';
+  if(!db.admin.created){ err.textContent='No admin account exists yet.'; return; }
+  if(mobile!==ADMIN_MOBILE || mobile!==db.admin.mobile){ err.textContent='This mobile number does not match the backend record — no OTP sent.'; return; }
+  const otp=genOtp(); session.pendingAdminReset=otp;
+  document.getElementById('adf-step1').style.display='none';
+  document.getElementById('adf-step2').style.display='block';
+  document.getElementById('adf-otp-hint').textContent='(demo: '+otp+')';
+  toast(`Demo OTP sent to ${mobile}: ${otp}`, 6000);
+}
+function verifyAdminResetOtp(){
+  const otp=document.getElementById('adf-otp').value.trim();
+  const newpass=document.getElementById('adf-newpass').value;
+  const err=document.getElementById('adf-err2'); err.textContent='';
+  if(otp!==session.pendingAdminReset){ err.textContent='Incorrect OTP.'; return; }
+  if(!newpass || newpass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  db.admin.password=newpass;
+  toast('Password reset. Please log in with your new password.');
+  setAdminTab('login');
+}
+function adminLogout(){ goto('screen-auth'); setAuthTab('login'); }
+
+/* ================= SHEETS ================= */
+function openSheet(id){
+  document.querySelectorAll('.modal-sheet').forEach(s=>s.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.getElementById('modal-bg').classList.add('show');
+  if(id==='sheet-help') renderHelpSheet();
+  if(id==='sheet-refer') renderReferSheet();
+  if(id==='sheet-pro') renderProSheet();
+}
+function closeAllSheets(e){
+  if(e.target.id==='modal-bg'){
+    document.getElementById('modal-bg').classList.remove('show');
+    clearInterval(userDetailTimer);
+  }
+}
+function closeSheetHard(){ document.getElementById('modal-bg').classList.remove('show'); clearInterval(userDetailTimer); }
+
+function renderHelpSheet(){
+  const L=db.links;
+  const items=[
+    ['✉️','Email', L.gmail, L.gmail?('mailto:'+L.gmail):null],
+    ['▶️','YouTube', L.youtube, L.youtube],
+    ['📸','Instagram', L.insta, L.insta],
+    ['📘','Facebook', L.fb, L.fb],
+    ['✈️','Telegram', L.tg, L.tg],
+    ['💬','WhatsApp channel', L.wa, L.wa],
+  ];
+  const box=document.getElementById('help-links-render');
+  box.innerHTML = items.map(([ico,label,val,href])=>{
+    if(!val) return `<div class="social-row"><div class="ico-box">${ico}</div><div><div>${label}</div><div class="hint" style="margin:0;">Not set up yet</div></div></div>`;
+    return `<a href="${href}" target="_blank" style="text-decoration:none; color:inherit;"><div class="social-row"><div class="ico-box">${ico}</div><div><div style="color:var(--ink)">${label}</div><div class="hint" style="margin:0;">${val}</div></div></div></a>`;
+  }).join('');
+}
+function renderReferSheet(){
+  const u=currentUser();
+  document.getElementById('refer-code').textContent = u ? u.id : '—';
+}
+function shareVia(kind){
+  const u=currentUser(); if(!u) return;
+  const text=encodeURIComponent(`Trade with me on EasyAlgo! Use my code ${u.id} when you sign up. https://easyalgo.app/join?ref=${u.id}`);
+  if(kind==='whatsapp') window.open(`https://wa.me/?text=${text}`, '_blank');
+  else if(kind==='telegram') window.open(`https://t.me/share/url?url=https://easyalgo.app/join?ref=${u.id}&text=${text}`, '_blank');
+  else if(kind==='sms') window.open(`sms:?body=${text}`, '_blank');
+  else if(kind==='copy'){ toast('Invite link copied (demo).'); }
+}
+function renderProSheet(){
+  const u=currentUser(); if(!u) return;
+  const active=isProActive(u);
+  const body=document.getElementById('pro-body');
+  if(!db.payment.enabled){
+    body.innerHTML = `<div class="card"><div style="font-weight:600;">Everything is free right now 🎉</div><div class="hint" style="margin-top:6px;">The admin hasn't turned on paid plans yet — all strategies are unlocked for every user.</div></div>`;
+    return;
+  }
+  const left=daysLeft(u);
+  body.innerHTML = `
+    <div class="card">
+      <div class="row"><div class="hint" style="margin:0;">Status</div><span class="tag ${active?'tag-up':'tag-down'}">${active?left+' days left':'Expired'}</span></div>
+    </div>
+    <div class="section-label">Pro plan</div>
+    <div class="card">
+      <div class="row"><div style="font-weight:700; font-size:18px;">₹${db.payment.price}<span class="hint" style="margin:0;"> /month</span></div></div>
+      <div class="hint" style="margin-top:6px;">Unlocks live execution on every strategy for 30 days.</div>
+      <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="payForPro()">Pay ₹${db.payment.price} &amp; activate</button>
+      <div class="hint" style="text-align:center; margin-top:8px;">Demo checkout — a live build routes this through the merchant gateway configured by admin.</div>
+    </div>`;
+}
+function payForPro(){
+  const u=currentUser(); if(!u) return;
+  const base = (u.proUntil && u.proUntil>Date.now()) ? u.proUntil : Date.now();
+  u.proUntil = base + 30*86400000;
+  toast('Payment successful — Pro plan activated for 30 days.');
+  renderProSheet(); renderShell();
+}
+
+/* ================= PROFILE screen (as its own tab) ================= */
+function openProfile(){
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-profile').classList.add('active');
+  renderProfile();
+}
+function closeProfile(){ setTab('home'); }
+function handleProfilePhoto(input){
+  const u=currentUser();
+  if(!u){ return; }
+  const file=input.files && input.files[0];
+  if(!file){ return; }
+  if(!file.type.startsWith('image/')){ toast('Please choose an image file.'); input.value=''; return; }
+  const reader=new FileReader();
+  reader.onerror=()=>{ toast('Could not read that photo — please try again.'); };
+  reader.onload=()=>{
+    const img=new Image();
+    img.onerror=()=>{ toast('Could not process that photo — please try a different one.'); };
+    img.onload=()=>{
+      // auto center-crop to a square + resize, so every avatar looks consistent
+      const size=Math.min(img.width, img.height);
+      const sx=(img.width-size)/2, sy=(img.height-size)/2;
+      const out=320;
+      const canvas=document.createElement('canvas');
+      canvas.width=out; canvas.height=out;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, out, out);
+      u.photo=canvas.toDataURL('image/jpeg', 0.9);
+      renderProfile();
+      const av=document.getElementById('topbar-avatar');
+      if(av){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+      closeSheetHard();
+      toast('Profile photo updated.');
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function removeProfilePhoto(){
+  const u=currentUser(); if(!u) return;
+  u.photo=null;
+  renderProfile();
+  const av=document.getElementById('topbar-avatar');
+  if(av){ av.style.background=''; av.textContent=u.id.slice(0,2); }
+  closeSheetHard();
+  toast('Profile photo removed.');
+}
+function renderProfile(){
+  const u=currentUser(); if(!u) return;
+  const av=document.getElementById('profile-avatar');
+  if(u.photo){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+  else { av.style.background=''; av.textContent=u.id.slice(0,2); }
+  document.getElementById('profile-name').textContent=u.name;
+  document.getElementById('profile-uid').textContent=u.id;
+  document.getElementById('profile-mobile').textContent='+91 '+u.mobile;
+  document.getElementById('profile-gmail').textContent=u.gmail;
+  document.getElementById('profile-joined').textContent=fmtDate(u.joined);
+  const active=isProActive(u);
+  document.getElementById('profile-plan').innerHTML = db.payment.enabled
+    ? (active ? `Pro <span class="plan-badge tag-up">${daysLeft(u)}d left</span>` : `Free <span class="plan-badge tag-down">expired</span>`)
+    : `Pro <span class="plan-badge tag-gold">free for now</span>`;
+}
+
+/* ================= TAB NAV ================= */
+function setTab(name){
+  document.querySelectorAll('#shell .screen[data-tab]').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('on'));
+  const navEl=document.getElementById('nav-'+name); if(navEl) navEl.classList.add('on');
+  if(name!=='home') clearInterval(homeTicker);
+  if(name==='home') renderHome();
+  if(name==='strategy') renderStrategy();
+  if(name==='settings') renderSettings();
+}
+
+/* ================= SHELL render ================= */
+function renderShell(){
+  const u=currentUser(); if(!u) return;
+  const av=document.getElementById('topbar-avatar');
+  if(u.photo){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+  else { av.style.background=''; av.textContent=u.id.slice(0,2); }
+  document.getElementById('topbar-name').textContent=u.name.split(' ')[0];
+  document.getElementById('topbar-uid').textContent=u.id;
+  setTab('home');
+}
+function generateTradeHistory(u){
+  const leverages=[5,10,20,25];
+  const count = 25 + Math.floor(Math.random()*15);
+  const trades=[];
+  for(let i=0;i<count;i++){
+    const coin = COIN_LIST[Math.floor(Math.random()*COIN_LIST.length)];
+    const side = Math.random()>0.5 ? 'Long':'Short';
+    const orderType = 'Futures';
+    const leverage = leverages[Math.floor(Math.random()*leverages.length)];
+    const qty = 1 + Math.floor(Math.random()*5);
+    const entry = +(coin.price*(1+(Math.random()*0.03-0.015))).toFixed(coin.price<1?4:2);
+    const movePct = (Math.random()*0.04-0.018);
+    const exit = +(entry*(1+movePct)).toFixed(coin.price<1?4:2);
+    const pnl = +(((side==='Long'? (exit-entry) : (entry-exit)) * qty * leverage/10)).toFixed(2);
+    const daysAgo = Math.random()*30;
+    const entryTime = Date.now() - daysAgo*86400000 - Math.floor(Math.random()*4)*3600000;
+    const exitTime = entryTime + (15*60000 + Math.floor(Math.random()*6*3600000));
+    trades.push({pair:coin.sym, side, orderType, leverage, qty, entry, exit, pnl, entryTime, exitTime});
+  }
+  trades.sort((a,b)=>b.exitTime-a.exitTime);
+  return trades;
+}
+let homeTicker=null;
+function newPosition(strategy){
+  const coin = COIN_LIST.find(c=>c.sym===strategy.coin) || COIN_LIST[0];
+  const entry = +(coin.price * (1 + (Math.random()*0.01-0.005))).toFixed(coin.price<1?4:2);
+  let side;
+  if(strategy.mood==='buy') side='Long';
+  else if(strategy.mood==='sell') side='Short';
+  else side = Math.random()>0.5 ? 'Long':'Short';
+  const qty = strategy.lotSize || 1;
+  const margin = Math.round(entry * qty * 0.1 * 100)/100;
+  return { pair:coin.sym, orderType:'Futures', side, entry, ltp:entry, qty, margin, key:strategy.id };
+}
+function tickPositions(){
+  const u=currentUser(); if(!u) return;
+  const positions=Object.values(u.positions||{});
+  if(positions.length===0){ clearInterval(homeTicker); return; }
+  positions.forEach(p=>{
+    const drift = p.ltp * (Math.random()*0.006-0.003);
+    p.ltp = +(p.ltp + drift).toFixed(2);
+  });
+  renderPositions();
+  renderAccountSummary();
+}
+function renderHome(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('home-name').textContent=u.name;
+  renderAccountSummary();
+  renderPositions();
+  clearInterval(homeTicker);
+  homeTicker=setInterval(tickPositions, 2500);
+}
+function renderAccountSummary(){
+  const u=currentUser(); if(!u) return;
+  const positions=Object.values(u.positions||{});
+  const active=isProActive(u);
+  const totalUpnl = positions.reduce((s,p)=> s + (p.side==='Long' ? (p.ltp-p.entry) : (p.entry-p.ltp)) * p.qty, 0);
+  const netMargin = positions.reduce((s,p)=> s+p.margin, 0);
+  const accountValue = 100000 + totalUpnl;
+  document.getElementById('home-account-value').textContent = '₹' + accountValue.toLocaleString('en-IN', {maximumFractionDigits:2});
+  document.getElementById('home-net-margin').textContent = '₹' + netMargin.toLocaleString('en-IN');
+  const upnlEl=document.getElementById('home-upnl');
+  upnlEl.textContent = (totalUpnl>=0?'+':'') + '₹' + totalUpnl.toLocaleString('en-IN', {maximumFractionDigits:2});
+  upnlEl.style.color = totalUpnl>=0 ? 'var(--up)' : 'var(--down)';
+  const tag=document.getElementById('home-trading-tag');
+  tag.textContent = active ? 'Live' : 'Bonded';
+  tag.className = 'tag ' + (active ? 'tag-up' : 'tag-down');
+}
+function renderPositions(){
+  const u=currentUser(); if(!u) return;
+  const wrap=document.getElementById('home-positions');
+  const active=isProActive(u);
+  if(!active){
+    wrap.innerHTML = `<div class="card"><div style="font-size:13px;"><b style="color:var(--down)">Trading is bonded.</b><br><span class="hint" style="margin:0;">Recharge your Pro plan to view and run live positions.</span></div>
+      <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="openSheet('sheet-pro')">Recharge</button></div>`;
+    return;
+  }
+  const positions=Object.values(u.positions||{});
+  if(positions.length===0){
+    wrap.innerHTML = `<div class="card empty">No open positions — turn on a strategy to start trading.<br><span style="color:var(--gold); cursor:pointer;" onclick="setTab('strategy')">Go to Strategy →</span></div>`;
+    return;
+  }
+  wrap.innerHTML = positions.map(p=>{
+    const upnl=(p.side==='Long' ? (p.ltp-p.entry) : (p.entry-p.ltp)) * p.qty;
+    const up = upnl>=0;
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="row">
+        <div style="font-weight:700; font-size:14.5px;">${p.pair}</div>
+        <div style="display:flex; gap:6px;">
+          <span class="tag tag-gold">${p.orderType}</span>
+          <span class="tag ${p.side==='Long'?'tag-up':'tag-down'}">${p.side}</span>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry / Current</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">${p.entry} → ${p.ltp}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Lots / Qty</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">${p.qty}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;">
+          <div class="hint">Margin used</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">₹${p.margin.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">uPNL</div>
+          <div class="mono" style="font-size:13.5px; font-weight:700; margin-top:3px; color:${up?'var(--up)':'var(--down)'}">${up?'+':''}₹${upnl.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderStrategy(){
+  const u=currentUser(); if(!u) return;
+  const active=isProActive(u);
+  document.getElementById('strategy-lock-banner').style.display = active ? 'none':'block';
+  const wrap=document.getElementById('strategy-list');
+  if(!u.customStrategies || u.customStrategies.length===0){
+    wrap.innerHTML = `<div class="card empty">No strategies yet.<br><span style="color:var(--gold); cursor:pointer;" onclick="setTab('settings')">Create one in Settings →</span></div>`;
+    return;
+  }
+  wrap.innerHTML='';
+  const periods=[['1m','1M'],['3m','3M'],['6m','6M'],['12m','12M']];
+  u.customStrategies.forEach(s=>{
+    const on=!!s.on;
+    const period = session.backtestPeriod[s.id] || '1m';
+    const bt = s.backtest[period];
+    const btUp = bt.netPnl>=0;
+    const el=document.createElement('div');
+    el.className='card strategy-card';
+    const moodLabel = s.mood==='buy' ? 'Buy only' : s.mood==='sell' ? 'Sell only' : 'Both (Long & Short)';
+    const entrySummary = s.entryRule && s.entryRule.indicator ? `Entry: ${s.entryRule.indicator}` : 'Entry: not set';
+    const exitBits=[];
+    if(s.exitRule){
+      if(s.exitRule.indicator) exitBits.push(s.exitRule.indicator);
+      if(s.exitRule.tpPct) exitBits.push('TP '+s.exitRule.tpPct+'%');
+      if(s.exitRule.slPct) exitBits.push('SL '+s.exitRule.slPct+'%');
+    }
+    const exitSummary = exitBits.length ? 'Exit: '+exitBits.join(' · ') : 'Exit: not set';
+    el.innerHTML=`
+      <div class="row">
+        <div style="max-width:78%;">
+          <div style="font-weight:600; font-size:14.5px;">${s.name}</div>
+          <div class="hint" style="margin-top:3px;">${s.coin} · ${s.timeframe} · ${moodLabel}</div>
+          <div class="hint" style="margin-top:3px;">${(s.indicators||[]).join(', ') || 'No indicators selected'}</div>
+          <div class="hint" style="margin-top:3px;">${entrySummary} · ${exitSummary}</div>
+          <div class="hint" style="margin-top:3px;">Lot size ${s.lotSize}${s.autoReverse?' · Auto reverse':''}</div>
+        </div>
+        <label class="switch ${active?'':'locked'}">
+          <input type="checkbox" ${on?'checked':''} onchange="toggleStrategy('${s.id}', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+      <div class="hint">Backtest</div>
+      <div class="pill-row">
+        ${periods.map(([key,label])=>`<div class="pill ${period===key?'on':''}" onclick="setBacktestPeriod('${s.id}','${key}')">${label}</div>`).join('')}
+      </div>
+      ${renderSparkline(bt.curve)}
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <div style="flex:1;"><div class="hint">Trades</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px;">${bt.trades}</div></div>
+        <div style="flex:1;"><div class="hint">Win rate</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px;">${bt.winRate}%</div></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;"><div class="hint">Net P&amp;L</div><div class="mono" style="font-size:14px; font-weight:700; margin-top:3px; color:${btUp?'var(--up)':'var(--down)'}">${btUp?'+':''}₹${bt.netPnl.toLocaleString('en-IN')}</div></div>
+        <div style="flex:1;"><div class="hint">Max drawdown</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px; color:var(--down);">${bt.maxDrawdown}%</div></div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openStrategyBuilder('${s.id}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="resetStrategy('${s.id}')">Reset</button>
+      </div>`;
+    wrap.appendChild(el);
+  });
+}
+function setBacktestPeriod(id, period){
+  session.backtestPeriod[id]=period;
+  renderStrategy();
+}
+function toggleStrategy(id, val){
+  const u=currentUser(); if(!u) return;
+  const strat=u.customStrategies.find(s=>s.id===id); if(!strat) return;
+  if(!isProActive(u)){ toast('Recharge your Pro plan to enable live trading.'); renderStrategy(); return; }
+  strat.on=val;
+  if(!u.positions) u.positions={};
+  if(val){ u.positions[id]=newPosition(strat); }
+  else { delete u.positions[id]; }
+  toast(val ? `${strat.name} turned on.` : `${strat.name} turned off.`);
+}
+
+/* ================= TRADE HISTORY ================= */
+function fmtDateTime(ts){
+  return new Date(ts).toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function toDateInputValue(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function openTradeHistory(){
+  const u=currentUser(); if(!u) return;
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-history').classList.add('active');
+  document.getElementById('th-from').value = toDateInputValue(Date.now()-30*86400000);
+  document.getElementById('th-to').value = toDateInputValue(Date.now());
+  renderTradeHistory(u.tradeHistory);
+}
+function clearTradeHistoryFilter(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('th-from').value='';
+  document.getElementById('th-to').value='';
+  renderTradeHistory(u.tradeHistory);
+}
+function applyTradeHistoryFilter(){
+  const u=currentUser(); if(!u) return;
+  const fromVal=document.getElementById('th-from').value;
+  const toVal=document.getElementById('th-to').value;
+  let list=u.tradeHistory;
+  if(fromVal){ const from=new Date(fromVal+'T00:00:00').getTime(); list=list.filter(t=>t.exitTime>=from); }
+  if(toVal){ const to=new Date(toVal+'T23:59:59').getTime(); list=list.filter(t=>t.exitTime<=to); }
+  renderTradeHistory(list);
+}
+function renderTradeHistory(list){
+  document.getElementById('th-count').textContent=list.length;
+  const net=list.reduce((s,t)=>s+t.pnl,0);
+  const netEl=document.getElementById('th-net');
+  netEl.textContent=(net>=0?'+':'')+'₹'+net.toLocaleString('en-IN',{maximumFractionDigits:2});
+  netEl.style.color= net>=0 ? 'var(--up)' : 'var(--down)';
+  const wrap=document.getElementById('th-list');
+  if(list.length===0){ wrap.innerHTML='<div class="card empty">No trades in this date range.</div>'; return; }
+  wrap.innerHTML=list.map(t=>{
+    const up=t.pnl>=0;
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="row">
+        <div style="font-weight:700; font-size:14.5px;">${t.pair}</div>
+        <div style="display:flex; gap:6px;">
+          <span class="tag tag-gold">${t.orderType}</span>
+          <span class="tag ${t.side==='Long'?'tag-up':'tag-down'}">${t.side}</span>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry / Exit price</div>
+          <div class="mono" style="font-size:13px; margin-top:3px;">${t.entry} → ${t.exit}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Leverage / Lots</div>
+          <div class="mono" style="font-size:13px; margin-top:3px;">${t.leverage}x · ${t.qty}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry time</div>
+          <div style="font-size:12px; margin-top:3px;">${fmtDateTime(t.entryTime)}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Exit time</div>
+          <div style="font-size:12px; margin-top:3px;">${fmtDateTime(t.exitTime)}</div>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div class="row">
+        <div class="hint" style="margin:0;">P&amp;L</div>
+        <div class="mono" style="font-weight:700; color:${up?'var(--up)':'var(--down)'}">${up?'+':''}₹${t.pnl.toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ================= SETTINGS: Delta API + strategy edit ================= */
+function renderSettings(){
+  renderDeltaFields();
+  renderSettingsStrategyList();
+}
+function renderDeltaFields(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('delta-api').value=u.deltaApi||'';
+  document.getElementById('delta-secret').value=u.deltaSecret||'';
+  const connected = !!(u.deltaApi && u.deltaSecret);
+  const tag=document.getElementById('delta-status');
+  tag.textContent = connected ? 'Connected' : 'Not connected';
+  tag.className = 'tag ' + (connected ? 'tag-up' : 'tag-dim');
+}
+function saveDeltaKeys(){
+  const u=currentUser(); if(!u) return;
+  u.deltaApi=val('delta-api'); u.deltaSecret=val('delta-secret');
+  renderDeltaFields();
+  document.getElementById('delta-saved').textContent='Saved.';
+  setTimeout(()=>document.getElementById('delta-saved').textContent='', 2500);
+  toast('Delta Exchange keys saved.');
+}
+function renderSettingsStrategyList(){
+  const u=currentUser(); if(!u) return;
+  const wrap=document.getElementById('settings-strategy-list');
+  const hint=document.getElementById('settings-strategy-hint');
+  if(!u.customStrategies || u.customStrategies.length===0){
+    hint.textContent='No strategies created yet.';
+    wrap.innerHTML='<div class="empty">Tap "New strategy" above to build your first one.</div>';
+    return;
+  }
+  hint.textContent='Tap a strategy below to edit it.';
+  wrap.innerHTML = u.customStrategies.map(s=>`
+    <div class="list-row" onclick="openStrategyBuilder('${s.id}')">
+      <div class="list-left"><div class="ico-box">📊</div><div><div style="font-weight:600; font-size:13.5px;">${s.name}</div><div class="hint" style="margin:1px 0 0;">${s.coin} · ${s.timeframe}</div></div></div>
+      <div>›</div>
+    </div>`).join('');
+}
+
+/* ---- strategy builder (full screen) ---- */
+function uid(){ return 'st_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function generateBacktest(){
+  const periods=[['1m',22],['3m',65],['6m',130],['12m',260]];
+  const bt={};
+  periods.forEach(([key,tradingDays])=>{
+    const trades = Math.round(tradingDays * (0.6 + Math.random()*1.2));
+    const winRate = +(45 + Math.random()*30).toFixed(1);
+    const avgWin = 300 + Math.random()*700;
+    const avgLoss = 200 + Math.random()*400;
+    const wins = Math.round(trades*winRate/100);
+    const losses = trades - wins;
+    const netPnl = Math.round(wins*avgWin - losses*avgLoss);
+    const maxDrawdown = +(3 + Math.random()*12).toFixed(1);
+    const points = Math.max(10, Math.min(40, trades));
+    const curve = buildEquityCurve(points, netPnl, maxDrawdown);
+    bt[key] = { trades, winRate, netPnl, maxDrawdown, curve };
+  });
+  return bt;
+}
+function buildEquityCurve(points, netPnl, maxDrawdownPct){
+  const steps=[];
+  let running=0;
+  const drawdownAmount = Math.abs(netPnl || 1000) * (maxDrawdownPct/100) * 3;
+  for(let i=0;i<points;i++){
+    const noise = (Math.random()-0.45) * (drawdownAmount/points) * 3;
+    running += noise;
+    steps.push(running);
+  }
+  // rescale so the curve ends exactly at netPnl, keeping its shape
+  const lastRaw = steps[steps.length-1] || 1;
+  const scale = lastRaw!==0 ? netPnl/lastRaw : 1;
+  return steps.map(v=> +(v*scale).toFixed(2));
+}
+function renderSparkline(curve){
+  const w=280, h=64, pad=4;
+  const vals=[0, ...curve];
+  const min=Math.min(...vals), max=Math.max(...vals);
+  const range=(max-min)||1;
+  const stepX=(w-pad*2)/(vals.length-1);
+  const pts=vals.map((v,i)=>{
+    const x=pad+i*stepX;
+    const y=pad+(1-(v-min)/range)*(h-pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last=vals[vals.length-1];
+  const color = last>=0 ? '#3DDC97' : '#F0576B';
+  const zeroY = pad+(1-(0-min)/range)*(h-pad*2);
+  const areaPts = `${pad},${zeroY} ` + pts.join(' ') + ` ${pad+(vals.length-1)*stepX},${zeroY}`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:64px; display:block; margin-top:8px;">
+    <polyline points="${areaPts}" fill="${color}22" stroke="none"></polyline>
+    <line x1="${pad}" y1="${zeroY.toFixed(1)}" x2="${w-pad}" y2="${zeroY.toFixed(1)}" stroke="#213050" stroke-width="1" stroke-dasharray="3,3"></line>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+  </svg>`;
+}
+function openStrategyBuilder(editId){
+  const u=currentUser(); if(!u) return;
+  session.editingStrategy = editId || null;
+  document.getElementById('sb-err').textContent='';
+  const strat = editId ? u.customStrategies.find(s=>s.id===editId) : null;
+  const entryRule = strat ? strat.entryRule : {};
+  const exitRule = strat ? strat.exitRule : {};
+
+  document.getElementById('sb-title').textContent = strat ? 'Edit strategy' : 'New strategy';
+  document.getElementById('sb-name').value = strat ? strat.name : '';
+  document.getElementById('sb-coin-search').value='';
+  document.getElementById('sb-coin-selected').textContent = strat ? strat.coin : 'None';
+  document.getElementById('sb-coin-selected').dataset.coin = strat ? strat.coin : '';
+  document.getElementById('sb-timeframe').value = strat ? strat.timeframe : '15 min';
+  document.getElementById('sb-auto-reverse').checked = strat ? !!strat.autoReverse : false;
+  document.getElementById('sb-mood').value = strat ? strat.mood : 'both';
+  document.getElementById('sb-lotsize').value = strat ? strat.lotSize : '';
+  document.getElementById('sb-delete-btn').style.display = strat ? 'block':'none';
+
+  document.getElementById('entry-indicator').value = entryRule.indicator || '';
+  document.getElementById('entry-candle-num').value = entryRule.candleNumber || '1';
+  document.getElementById('entry-24h').checked = !!entryRule.use24h;
+  document.getElementById('entry-24h-reset').value = entryRule.resetTime || '00:00';
+  document.getElementById('entry-time-input').value='';
+  toggle24hRow('entry');
+
+  document.getElementById('exit-indicator').value = exitRule.indicator || '';
+  document.getElementById('exit-candle-num').value = exitRule.candleNumber || '1';
+  document.getElementById('exit-24h').checked = !!exitRule.use24h;
+  document.getElementById('exit-24h-reset').value = exitRule.resetTime || '00:00';
+  document.getElementById('exit-time-input').value='';
+  document.getElementById('exit-tp-pct').value = exitRule.tpPct!=null ? exitRule.tpPct : '';
+  document.getElementById('exit-sl-pct').value = exitRule.slPct!=null ? exitRule.slPct : '';
+  toggle24hRow('exit');
+
+  session.builderTimes = { entry: (entryRule.times||[]).slice(), exit: (exitRule.times||[]).slice() };
+  renderRuleTimes('entry');
+  renderRuleTimes('exit');
+
+  renderCoinOptions();
+  renderIndicatorCheckboxes(strat ? strat.indicators : []);
+
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-strategy-builder').classList.add('active');
+}
+function toggle24hRow(prefix){
+  const on=document.getElementById(prefix+'-24h').checked;
+  document.getElementById(prefix+'-24h-row').style.display = on ? 'block':'none';
+}
+function addRuleTime(prefix){
+  const input=document.getElementById(prefix+'-time-input');
+  const t=input.value;
+  if(!t) return;
+  if(!session.builderTimes) session.builderTimes={entry:[],exit:[]};
+  if(!session.builderTimes[prefix].includes(t)) session.builderTimes[prefix].push(t);
+  session.builderTimes[prefix].sort();
+  input.value='';
+  renderRuleTimes(prefix);
+}
+function removeRuleTime(prefix, t){
+  session.builderTimes[prefix] = session.builderTimes[prefix].filter(x=>x!==t);
+  renderRuleTimes(prefix);
+}
+function renderRuleTimes(prefix){
+  const times=(session.builderTimes && session.builderTimes[prefix]) || [];
+  const wrap=document.getElementById(prefix+'-times-list');
+  if(times.length===0){ wrap.innerHTML=''; return; }
+  wrap.innerHTML=times.map(t=>`<span class="tag tag-gold" style="cursor:pointer;" onclick="removeRuleTime('${prefix}','${t}')">${t} ✕</span>`).join('');
+}
+function renderCoinOptions(){
+  const q=document.getElementById('sb-coin-search').value.trim().toUpperCase();
+  const list = COIN_LIST.filter(c=> !q || c.sym.includes(q) || c.name.toUpperCase().includes(q));
+  const box=document.getElementById('sb-coin-list');
+  if(list.length===0){ box.innerHTML='<div class="hint" style="padding:8px 0;">No matching coin.</div>'; return; }
+  box.innerHTML = list.map(c=>`
+    <div class="list-row" style="padding:9px 0;" onclick="selectCoin('${c.sym}')">
+      <div class="list-left"><div>${c.name}</div></div>
+      <div class="mono hint" style="margin:0;">${c.sym}</div>
+    </div>`).join('');
+}
+function selectCoin(sym){
+  const el=document.getElementById('sb-coin-selected');
+  el.textContent=sym; el.dataset.coin=sym;
+  toast(sym+' selected.');
+}
+function renderIndicatorCheckboxes(selected){
+  selected = selected || [];
+  const box=document.getElementById('sb-indicators');
+  box.innerHTML = INDICATOR_LIST.map((ind,i)=>`
+    <div class="row" style="padding:8px 0; ${i<INDICATOR_LIST.length-1?'border-bottom:1px solid var(--line);':''}">
+      <div>${ind}</div>
+      <input type="checkbox" class="sb-ind-check" value="${ind}" ${selected.includes(ind)?'checked':''} style="width:18px; height:18px; accent-color:var(--gold);">
+    </div>`).join('');
+}
+function saveCustomStrategy(){
+  const u=currentUser(); if(!u) return;
+  const err=document.getElementById('sb-err'); err.textContent='';
+  const name=val('sb-name');
+  const coin=document.getElementById('sb-coin-selected').dataset.coin;
+  const timeframe=document.getElementById('sb-timeframe').value;
+  const autoReverse=document.getElementById('sb-auto-reverse').checked;
+  const mood=document.getElementById('sb-mood').value;
+  const lotSize=Number(val('sb-lotsize'));
+  const indicators=Array.from(document.querySelectorAll('.sb-ind-check:checked')).map(c=>c.value);
+
+  const entryRule = {
+    indicator: document.getElementById('entry-indicator').value,
+    candleNumber: document.getElementById('entry-candle-num').value,
+    times: (session.builderTimes && session.builderTimes.entry) || [],
+    use24h: document.getElementById('entry-24h').checked,
+    resetTime: document.getElementById('entry-24h-reset').value || '00:00'
+  };
+  const exitRule = {
+    indicator: document.getElementById('exit-indicator').value,
+    candleNumber: document.getElementById('exit-candle-num').value,
+    times: (session.builderTimes && session.builderTimes.exit) || [],
+    use24h: document.getElementById('exit-24h').checked,
+    resetTime: document.getElementById('exit-24h-reset').value || '00:00',
+    tpPct: val('exit-tp-pct') ? Number(val('exit-tp-pct')) : null,
+    slPct: val('exit-sl-pct') ? Number(val('exit-sl-pct')) : null
+  };
+
+  if(!name){ err.textContent='Strategy name is required.'; return; }
+  if(!coin){ err.textContent='Select a coin.'; return; }
+  if(indicators.length===0){ err.textContent='Select at least one indicator.'; return; }
+  if(!(lotSize>0)){ err.textContent='Enter a valid lot size.'; return; }
+
+  const editId=session.editingStrategy;
+  if(editId){
+    const strat=u.customStrategies.find(s=>s.id===editId);
+    Object.assign(strat, {name, coin, timeframe, autoReverse, mood, lotSize, indicators, entryRule, exitRule});
+    if(strat.on && u.positions[editId]) u.positions[editId]=newPosition(strat);
+  } else {
+    const fields={name, coin, timeframe, autoReverse, mood, lotSize, indicators, entryRule, exitRule};
+    u.customStrategies.push(Object.assign({ id:uid(), on:false, backtest:generateBacktest(), original:JSON.parse(JSON.stringify(fields)) }, fields));
+  }
+  setTab('settings');
+  renderSettingsStrategyList();
+  renderStrategy();
+  toast('Strategy saved.');
+}
+function deleteCustomStrategy(){
+  const u=currentUser(); const editId=session.editingStrategy; if(!u||!editId) return;
+  u.customStrategies = u.customStrategies.filter(s=>s.id!==editId);
+  delete u.positions[editId];
+  setTab('settings');
+  renderSettingsStrategyList();
+  renderStrategy();
+  toast('Strategy deleted.');
+}
+function resetStrategy(id){
+  const u=currentUser(); if(!u) return;
+  const strat=u.customStrategies.find(s=>s.id===id); if(!strat) return;
+  if(!confirm('Reset "'+strat.name+'" back to how it was first saved?')) return;
+  Object.assign(strat, JSON.parse(JSON.stringify(strat.original)));
+  if(strat.on && u.positions[id]) u.positions[id]=newPosition(strat);
+  renderStrategy();
+  toast('Strategy reset to its original settings.');
+}
+
+/* ================= ADMIN render ================= */
+function renderAdmin(){
+  document.getElementById('admin-topbar-line').textContent = db.admin.username + ' · ' + db.admin.mobile;
+  document.getElementById('lk-gmail').value=db.links.gmail;
+  document.getElementById('lk-youtube').value=db.links.youtube;
+  document.getElementById('lk-insta').value=db.links.insta;
+  document.getElementById('lk-fb').value=db.links.fb;
+  document.getElementById('lk-tg').value=db.links.tg;
+  document.getElementById('lk-wa').value=db.links.wa;
+  document.getElementById('pay-enable').checked=db.payment.enabled;
+  document.getElementById('pay-api').value=db.payment.api;
+  document.getElementById('pay-secret').value=db.payment.secret;
+  document.getElementById('pay-webhook').value=db.payment.webhook;
+  document.getElementById('pay-vpa').value=db.payment.vpa;
+  document.getElementById('pay-price').value=db.payment.price;
+  document.getElementById('lk-edit-form').style.display='none';
+  document.getElementById('lk-edit-toggle').textContent='Edit';
+  renderAdminHelpPreview();
+  renderAdminSummary();
+  renderAdminUserList();
+}
+function toggleHelpEdit(){
+  const form=document.getElementById('lk-edit-form');
+  const opening = form.style.display==='none';
+  form.style.display = opening ? 'block':'none';
+  document.getElementById('lk-edit-toggle').textContent = opening ? 'Close' : 'Edit';
+}
+function renderAdminHelpPreview(){
+  const L=db.links;
+  const items=[['✉️','Gmail',L.gmail],['▶️','YouTube',L.youtube],['📸','Instagram',L.insta],['📘','Facebook',L.fb],['✈️','Telegram',L.tg],['💬','WhatsApp',L.wa]];
+  const box=document.getElementById('lk-preview');
+  box.innerHTML=items.map(([ico,label,v])=>`
+    <div class="row" style="padding:8px 0;">
+      <div class="list-left"><div class="ico-box">${ico}</div><div>${label}</div></div>
+      <span class="tag ${v?'tag-up':'tag-dim'}">${v?'Set':'Not set'}</span>
+    </div>`).join('');
+}
+function renderAdminSummary(){
+  document.getElementById('adm-total-users').textContent=db.users.length;
+  document.getElementById('adm-pro-users').textContent=db.users.filter(u=>db.payment.enabled && daysLeft(u)>0).length;
+}
+function renderAdminUserList(){
+  const q=(document.getElementById('adm-search').value||'').trim().toLowerCase();
+  const list=db.users.filter(u=>!q || u.id.toLowerCase().includes(q));
+  const box=document.getElementById('adm-user-list');
+  if(list.length===0){ box.innerHTML='<div class="empty">No users yet — accounts created via sign-up will appear here.</div>'; return; }
+  box.innerHTML=list.map(u=>`
+    <div class="list-row" onclick="openUserDetail('${u.id}')">
+      <div class="list-left">
+        <div class="ico-box mono" style="font-size:11px; ${u.photo?`background:center/cover url(${u.photo});`:''}">${u.photo?'':u.id.slice(0,2)}</div>
+        <div><div style="font-weight:600; font-size:13.5px;">${u.name}</div><div class="hint" style="margin:1px 0 0;">${u.id} · +91 ${u.mobile}</div></div>
+      </div>
+      <span class="tag ${db.payment.enabled ? (daysLeft(u)>0?'tag-up':'tag-dim') : 'tag-gold'}">${db.payment.enabled ? (daysLeft(u)>0?'Pro':'Free') : 'Unlocked'}</span>
+    </div>`).join('');
+}
+let userDetailTimer=null;
+function fmtCountdown(ms){
+  if(ms<=0) return 'Expired';
+  const s=Math.floor(ms/1000);
+  const d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return `${d}d ${h}h ${m}m ${sec}s`;
+}
+function openUserDetail(id){
+  const u=findUser(id); if(!u) return;
+  renderUserDetailBody(u);
+  clearInterval(userDetailTimer);
+  userDetailTimer=setInterval(()=>{
+    const live=document.getElementById('ud-countdown');
+    if(!live || !u.proUntil){ clearInterval(userDetailTimer); return; }
+    live.textContent = fmtCountdown(u.proUntil - Date.now());
+  }, 1000);
+  openSheet('sheet-userdetail');
+}
+function renderUserDetailBody(u){
+  const active=isProActive(u);
+  const photoHtml = u.photo
+    ? `<img src="${u.photo}" style="width:56px; height:56px; border-radius:14px; object-fit:cover; margin:0 auto 10px; display:block; border:1px solid var(--line);">`
+    : `<div class="avatar" style="width:56px; height:56px; font-size:16px; margin:0 auto 10px;">${u.id.slice(0,2)}</div>`;
+  document.getElementById('userdetail-body').innerHTML=`
+    <div class="card" style="text-align:center;">
+      ${photoHtml}
+      <div style="font-weight:700; font-size:17px;">${u.name}</div>
+      <div class="mono" style="color:var(--gold); margin-top:4px;">${u.id}</div>
+    </div>
+    <div class="section-label">Contact</div>
+    <div class="card">
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Mobile</div><div>+91 ${u.mobile}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Gmail</div><div style="text-align:right;">${u.gmail}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Joined</div><div>${fmtDate(u.joined)}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Photo</div><div class="hint" style="margin:0;">${u.photo?'Uploaded':'Not uploaded'}</div></div>
+    </div>
+    <div class="section-label">Plan &amp; recharge</div>
+    <div class="card">
+      <div class="row"><div class="hint" style="margin:0;">Status</div><span class="tag ${active?'tag-up':'tag-down'}">${db.payment.enabled ? (active?'Active':'Expired / never paid') : 'Unlocked (free mode)'}</span></div>
+      ${u.proUntil ? `
+      <div class="divider" style="margin:8px 0;"></div>
+      <div class="row" style="padding:2px 0;"><div class="hint" style="margin:0;">Plan ends on</div><div>${new Date(u.proUntil).toLocaleString('en-IN')}</div></div>
+      <div class="row" style="padding:6px 0 0;"><div class="hint" style="margin:0;">Time left</div><div class="mono" id="ud-countdown" style="color:${active?'var(--up)':'var(--down)'}">${fmtCountdown(u.proUntil-Date.now())}</div></div>
+      ` : `<div class="hint" style="margin-top:8px;">No recharge yet — this user hasn't purchased a Pro plan.</div>`}
+    </div>
+    <div class="section-label">Strategies</div>
+    <div class="card">
+      ${(u.customStrategies&&u.customStrategies.length) ? u.customStrategies.map(s=>`<div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">${s.name} (${s.coin})</div><span class="tag ${s.on?'tag-up':'tag-dim'}">${s.on?'On':'Off'}</span></div>`).join('') : '<div class="hint">No strategies created.</div>'}
+    </div>`;
+}
+function saveLinks(){
+  db.links={gmail:val('lk-gmail'), youtube:val('lk-youtube'), insta:val('lk-insta'), fb:val('lk-fb'), tg:val('lk-tg'), wa:val('lk-wa')};
+  renderAdminHelpPreview();
+  document.getElementById('lk-saved').textContent='Saved — live in Help & Support for all users.';
+  setTimeout(()=>{ document.getElementById('lk-saved').textContent=''; toggleHelpEdit(); }, 900);
+}
+function savePayment(){
+  db.payment={
+    enabled: document.getElementById('pay-enable').checked,
+    api: val('pay-api'), secret: val('pay-secret'), webhook: val('pay-webhook'), vpa: val('pay-vpa'),
+    price: Number(val('pay-price'))||499
+  };
+  document.getElementById('pay-saved').textContent='Saved.';
+  setTimeout(()=>document.getElementById('pay-saved').textContent='', 2500);
+  renderAdminSummary();
+}
+function changeAdminPass(){
+  const p=val('adm-newpass'); if(!p){ return; }
+  db.admin.password=p; document.getElementById('adm-newpass').value='';
+  document.getElementById('adm-pass-saved').textContent='Admin password updated.';
+  setTimeout(()=>document.getElementById('adm-pass-saved').textContent='', 2500);
+}
+function val(id){ return document.getElementById(id).value.trim(); }
+
+/* ================= init ================= */
+setAuthTab('login');
+</script>
+</body>
+</html>
