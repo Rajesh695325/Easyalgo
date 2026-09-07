@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EasyAlgo — Trade Smarter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B1220;
+  --panel:#111a2c;
+  --panel-2:#0e1626;
+  --line:#213050;
+  --ink:#E8ECF5;
+  --ink-dim:#8B98B8;
+  --gold:#D4A24E;
+  --gold-dim:#8a6d3a;
+  --up:#3DDC97;
+  --down:#F0576B;
+  --radius:14px;
+  --radius-sm:8px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  -webkit-font-smoothing:antialiased;
+}
+#app{
+  width:100%;
+  max-width:460px;
+  min-height:100vh;
+  background:var(--bg);
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  border-left:1px solid var(--line);
+  border-right:1px solid var(--line);
+}
+h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.screen{display:none; flex-direction:column; flex:1; animation:fade .25s ease;}
+.screen.active{display:flex;}
+@keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+::selection{background:var(--gold); color:#0B1220;}
+
+/* ---------- shared bits ---------- */
+.pad{padding:20px;}
+.btn{
+  border:none; border-radius:var(--radius-sm); padding:14px 18px;
+  font-family:'Inter',sans-serif; font-weight:600; font-size:14.5px;
+  cursor:pointer; width:100%; transition:transform .1s ease, opacity .15s ease;
+}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--gold); color:#1a1204;}
+.btn-primary:hover{opacity:.92;}
+.btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--line);}
+.btn-danger{background:transparent; color:var(--down); border:1px solid #4a1f29;}
+.btn-sm{padding:9px 14px; font-size:13px; width:auto;}
+label{display:block; font-size:12.5px; color:var(--ink-dim); margin-bottom:6px; margin-top:16px;}
+label:first-child{margin-top:0;}
+input, select{
+  width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+  padding:12px 13px; border-radius:var(--radius-sm); font-size:14.5px; font-family:'Inter',sans-serif;
+  outline:none;
+}
+input:focus, select:focus{border-color:var(--gold-dim);}
+.hint{font-size:11.5px; color:var(--ink-dim); margin-top:5px; line-height:1.4;}
+.err{font-size:12.5px; color:var(--down); margin-top:6px; min-height:14px;}
+.toast{
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  background:var(--panel); border:1px solid var(--gold-dim); color:var(--ink);
+  padding:12px 18px; border-radius:10px; font-size:13px; z-index:999;
+  box-shadow:0 8px 24px rgba(0,0,0,.4); max-width:400px; text-align:center;
+  opacity:0; pointer-events:none; transition:opacity .25s ease, bottom .25s ease;
+}
+.toast.show{opacity:1; bottom:28px;}
+.divider{height:1px; background:var(--line); margin:18px 0;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.tag{font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:600; letter-spacing:.2px;}
+.tag-up{background:rgba(61,220,151,.12); color:var(--up);}
+.tag-down{background:rgba(240,87,107,.12); color:var(--down);}
+.tag-gold{background:rgba(212,162,78,.14); color:var(--gold);}
+.tag-dim{background:var(--panel-2); color:var(--ink-dim);}
+.pill-row{display:flex; gap:6px; margin-top:12px;}
+.pill{flex:1; text-align:center; padding:7px 0; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); font-size:12px; color:var(--ink-dim); cursor:pointer;}
+.pill.on{background:var(--gold); color:#1a1204; border-color:var(--gold); font-weight:700;}
+.back-row{display:flex; align-items:center; gap:10px; padding:16px 20px 6px;}
+.back-btn{background:var(--panel); border:1px solid var(--line); width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink); font-size:16px;}
+.screen-title{font-size:17px; font-weight:600;}
+
+/* ---------- auth ---------- */
+#auth-wrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px 26px;}
+.logo-mark{width:52px; height:52px; border-radius:14px; background:linear-gradient(155deg,var(--gold),#8a6d3a); display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; font-size:22px; color:#1a1204; margin-bottom:18px;}
+.brand-line{font-size:24px; font-weight:700; letter-spacing:-.3px;}
+.brand-sub{color:var(--ink-dim); font-size:13.5px; margin-top:4px; margin-bottom:30px;}
+.auth-tabs{display:flex; background:var(--panel-2); border-radius:10px; padding:4px; margin-bottom:22px;}
+.auth-tab{flex:1; text-align:center; padding:9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-dim); cursor:pointer;}
+.auth-tab.on{background:var(--gold); color:#1a1204;}
+.otp-boxes{display:flex; gap:9px; margin-top:6px;}
+.otp-boxes input{text-align:center; font-size:18px; padding:12px 0; font-family:'JetBrains Mono';}
+
+/* ---------- main shell (user) ---------- */
+#shell{flex:1; display:flex; flex-direction:column; display:none;}
+#shell.active{display:flex;}
+.topbar{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line);}
+.profile-corner{display:flex; align-items:center; gap:9px; cursor:pointer;}
+.avatar{width:36px; height:36px; border-radius:10px; background:var(--panel-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono'; font-size:11px; color:var(--gold); font-weight:600;}
+.uid-mini{font-size:11px; color:var(--ink-dim);}
+.uname-mini{font-size:13.5px; font-weight:600;}
+.top-right-icons{display:flex; gap:14px; font-size:18px; color:var(--ink-dim);}
+.main-scroll{flex:1; overflow-y:auto; padding-bottom:90px;}
+.bottom-nav{position:absolute; bottom:0; left:0; right:0; display:flex; border-top:1px solid var(--line); background:var(--panel); padding:9px 10px 12px;}
+.nav-item{flex:1; text-align:center; color:var(--ink-dim); font-size:11px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;}
+.nav-item.on{color:var(--gold);}
+.nav-ico{font-size:19px;}
+
+/* ---------- misc ---------- */
+.list-row{display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--line); cursor:pointer;}
+.list-row:last-child{border-bottom:none;}
+.list-left{display:flex; align-items:center; gap:12px;}
+.ico-box{width:38px; height:38px; border-radius:10px; background:var(--panel-2); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;}
+.section-label{font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-dim); margin:22px 0 10px; font-weight:600;}
+.section-label:first-child{margin-top:0;}
+.strategy-card{margin-bottom:12px;}
+.switch{position:relative; width:42px; height:24px; flex-shrink:0;}
+.switch input{opacity:0; width:0; height:0;}
+.slider{position:absolute; inset:0; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; cursor:pointer; transition:.2s;}
+.slider:before{content:""; position:absolute; width:17px; height:17px; left:2px; top:2px; background:var(--ink-dim); border-radius:50%; transition:.2s;}
+input:checked + .slider{background:rgba(61,220,151,.18); border-color:var(--up);}
+input:checked + .slider:before{transform:translateX(18px); background:var(--up);}
+.locked{opacity:.45; pointer-events:none;}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; color:var(--ink-dim); font-weight:600; font-size:11px; text-transform:uppercase; padding-bottom:8px; letter-spacing:.4px;}
+td{padding:10px 0; border-top:1px solid var(--line);}
+.empty{text-align:center; color:var(--ink-dim); font-size:13px; padding:30px 10px;}
+.modal-bg{position:fixed; inset:0; background:rgba(5,8,15,.72); z-index:200; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal-sheet{width:100%; max-width:460px; background:var(--panel); border-top-left-radius:20px; border-top-right-radius:20px; border:1px solid var(--line); border-bottom:none; padding:22px; max-height:85vh; overflow-y:auto; position:relative;}
+.modal-handle{width:36px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px;}
+.sheet-close{position:absolute; top:16px; right:16px; width:30px; height:30px; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;}
+.social-row{display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line);}
+.social-row:last-child{border-bottom:none;}
+.plan-badge{display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; margin-left:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ AUTH ============ -->
+  <div class="screen active" id="screen-auth">
+    <div id="auth-wrap">
+      <div class="logo-mark">EA</div>
+      <div class="brand-line">EasyAlgo</div>
+      <div class="brand-sub">Signal-driven algo trading, made simple.</div>
+
+      <div class="auth-tabs">
+        <div class="auth-tab on" id="tab-login" onclick="setAuthTab('login')">Log in</div>
+        <div class="auth-tab" id="tab-signup" onclick="setAuthTab('signup')">Create account</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="pane-login">
+        <label>User ID</label>
+        <input id="li-uid" placeholder="e.g. RN0001" autocomplete="off">
+        <label>Password</label>
+        <input id="li-pass" type="password" placeholder="Your password">
+        <div class="err" id="li-err"></div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="doLogin()">Log in</button>
+        <div class="hint" style="text-align:center; margin-top:14px;">New here? Use <b style="color:var(--ink)">Create account</b> above — you'll get a User ID automatically.</div>
+        <div class="hint" style="text-align:center; margin-top:18px;"><span style="color:var(--gold); cursor:pointer;" onclick="openAdminLogin()">Admin login →</span></div>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="pane-signup" style="display:none">
+        <div id="su-step1">
+          <label>Full name</label>
+          <input id="su-name" placeholder="e.g. Rajesh Nayak">
+          <label>Mobile number</label>
+          <input id="su-mobile" placeholder="10-digit mobile number" maxlength="10">
+          <label>Gmail address</label>
+          <input id="su-gmail" placeholder="you@gmail.com">
+          <label>Profile photo <span class="hint" style="margin:0;">(optional)</span></label>
+          <input id="su-photo" type="file" accept="image/*" style="padding:9px;">
+          <div class="err" id="su-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendSignupOtps()">Send OTPs</button>
+        </div>
+
+        <div id="su-step2" style="display:none">
+          <div class="hint" style="margin-bottom:4px;">Demo mode: no real SMS/Gmail is sent — the OTP is shown right here so you can test the flow.</div>
+          <label>Mobile OTP <span class="mono" id="su-otp-mobile-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="su-otp-mobile" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>Gmail OTP <span class="mono" id="su-otp-gmail-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="su-otp-gmail" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>Create password</label>
+          <input id="su-pass" type="password" placeholder="Set a password">
+          <div class="err" id="su-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifySignup()">Verify &amp; create account</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="backToStep1()">Back</button>
+        </div>
+
+        <div id="su-step3" style="display:none; text-align:center; padding-top:10px;">
+          <div style="font-size:38px;">✅</div>
+          <div style="font-weight:700; font-size:17px; margin:10px 0 4px;">Account created</div>
+          <div class="hint">Your User ID</div>
+          <div class="mono" style="font-size:24px; color:var(--gold); font-weight:700; margin:6px 0 18px;" id="su-final-id"></div>
+          <button class="btn btn-primary" onclick="enterShell()">Continue to EasyAlgo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADMIN LOGIN ============ -->
+  <div class="screen" id="screen-admin-login">
+    <div class="back-row">
+      <div class="back-btn" onclick="goto('screen-auth')">←</div>
+      <div class="screen-title">Admin</div>
+    </div>
+    <div class="pad" style="padding-top:8px;">
+
+      <div class="auth-tabs">
+        <div class="auth-tab on" id="adm-tab-login" onclick="setAdminTab('login')">Log in</div>
+        <div class="auth-tab" id="adm-tab-create" onclick="setAdminTab('create')">Create account</div>
+      </div>
+
+      <!-- ADMIN LOG IN -->
+      <div id="adm-pane-login">
+        <label>Username</label>
+        <input id="adl-username" placeholder="Admin username">
+        <label>Password</label>
+        <input id="adl-pass" type="password" placeholder="Password">
+        <div class="err" id="adl-err"></div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="doAdminLogin()">Log in</button>
+        <div class="hint" style="text-align:center; margin-top:14px;"><span style="color:var(--gold); cursor:pointer;" onclick="openAdminForgot()">Forgot password?</span></div>
+      </div>
+
+      <!-- ADMIN CREATE ACCOUNT -->
+      <div id="adm-pane-create" style="display:none">
+        <div id="adc-step1">
+          <label>Username</label>
+          <input id="adc-username" placeholder="Choose an admin username">
+          <label>Mobile number</label>
+          <input id="adc-mobile" placeholder="Backend-registered mobile number" maxlength="10">
+          <label>Password</label>
+          <input id="adc-pass" type="password" placeholder="Set a password">
+          <div class="err" id="adc-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendAdminCreateOtp()">Send OTP</button>
+          <div class="hint" style="margin-top:10px;">OTP is only sent if this mobile number matches the number registered in the backend — this is how only the real admin can ever create this account.</div>
+        </div>
+        <div id="adc-step2" style="display:none">
+          <div class="hint">Demo mode: OTP shown right here.</div>
+          <label>Enter OTP <span class="mono" id="adc-otp-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="adc-otp" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <div class="err" id="adc-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifyAdminCreateOtp()">Verify &amp; create account</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="document.getElementById('adc-step1').style.display='block'; document.getElementById('adc-step2').style.display='none';">Back</button>
+        </div>
+        <div id="adc-step3" style="display:none; text-align:center; padding-top:10px;">
+          <div style="font-size:38px;">✅</div>
+          <div style="font-weight:700; font-size:17px; margin:10px 0 4px;">Admin account created</div>
+          <div class="hint" style="margin-bottom:16px;">You can now log in with your username and password — no OTP needed each time.</div>
+          <button class="btn btn-primary" onclick="setAdminTab('login')">Go to log in</button>
+        </div>
+      </div>
+
+      <!-- ADMIN FORGOT PASSWORD -->
+      <div id="adm-pane-forgot" style="display:none">
+        <div id="adf-step1">
+          <div class="hint" style="margin-bottom:6px;">Enter the registered admin mobile number — if it matches the backend record, we'll send an OTP.</div>
+          <label>Registered mobile number</label>
+          <input id="adf-mobile" placeholder="Mobile number" maxlength="10">
+          <div class="err" id="adf-err1"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="sendAdminResetOtp()">Send OTP</button>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="closeAdminForgot()">Back to log in</button>
+        </div>
+        <div id="adf-step2" style="display:none">
+          <label>Enter OTP <span class="mono" id="adf-otp-hint" style="color:var(--gold); font-weight:600;"></span></label>
+          <input id="adf-otp" placeholder="4-digit OTP" maxlength="4" class="mono">
+          <label>New password</label>
+          <input id="adf-newpass" type="password" placeholder="Set a new password">
+          <div class="err" id="adf-err2"></div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="verifyAdminResetOtp()">Reset password</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ USER SHELL ============ -->
+
+  <div id="shell">
+    <div class="topbar">
+      <div class="profile-corner" onclick="openProfile()">
+        <div class="avatar" id="topbar-avatar">--</div>
+        <div>
+          <div class="uname-mini" id="topbar-name">—</div>
+          <div class="uid-mini" id="topbar-uid">—</div>
+        </div>
+      </div>
+      <div class="top-right-icons">
+        <span onclick="openSheet('sheet-help')">🛟</span>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+      <!-- ---- HOME ---- -->
+      <div class="screen active" id="tab-home" data-tab="home">
+        <div class="pad">
+          <div class="hint">Welcome back</div>
+          <h2 id="home-name" style="font-size:19px; margin-bottom:16px;">—</h2>
+
+          <div class="card">
+            <div class="row">
+              <div class="hint" style="margin:0;">Account value</div>
+              <span class="tag" id="home-trading-tag">—</span>
+            </div>
+            <div class="mono" style="font-size:24px; font-weight:700; margin-top:6px;" id="home-account-value">₹0</div>
+            <div class="divider"></div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1;">
+                <div class="hint">Net margin used</div>
+                <div class="mono" style="font-size:15px; font-weight:600; margin-top:4px;" id="home-net-margin">₹0</div>
+              </div>
+              <div style="flex:1;">
+                <div class="hint">Total uPNL</div>
+                <div class="mono" style="font-size:15px; font-weight:700; margin-top:4px;" id="home-upnl">₹0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-label">Positions / orders</div>
+          <div id="home-positions"></div>
+        </div>
+      </div>
+
+      <!-- ---- STRATEGY ---- -->
+      <div class="screen" id="tab-strategy" data-tab="strategy">
+        <div class="pad">
+          <h2 style="font-size:19px;">Strategy</h2>
+          <div class="hint" style="margin-bottom:6px;">Turn on the algos you want running. Live execution needs an active Pro plan.</div>
+          <div id="strategy-lock-banner" style="display:none;" class="card" >
+            <div class="row">
+              <div style="font-size:13px;"><b style="color:var(--down)">Trading is bonded.</b><br><span class="hint" style="margin:0;">Your Pro plan has ended — recharge to resume live trading.</span></div>
+              <button class="btn btn-primary btn-sm" onclick="openSh
