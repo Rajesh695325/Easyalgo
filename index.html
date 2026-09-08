@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+no<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1053,3 +1053,416 @@ function payForPro(){
 }
 
 /* ================= PROFILE screen (as its own tab) =========
+function openProfile(){
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-profile').classList.add('active');
+  renderProfile();
+}
+function closeProfile(){ setTab('home'); }
+function handleProfilePhoto(input){
+  const u=currentUser();
+  if(!u){ return; }
+  const file=input.files && input.files[0];
+  if(!file){ return; }
+  if(!file.type.startsWith('image/')){ toast('Please choose an image file.'); input.value=''; return; }
+  const reader=new FileReader();
+  reader.onerror=()=>{ toast('Could not read that photo — please try again.'); };
+  reader.onload=()=>{
+    const img=new Image();
+    img.onerror=()=>{ toast('Could not process that photo — please try a different one.'); };
+    img.onload=()=>{
+      // auto center-crop to a square + resize, so every avatar looks consistent
+      const size=Math.min(img.width, img.height);
+      const sx=(img.width-size)/2, sy=(img.height-size)/2;
+      const out=320;
+      const canvas=document.createElement('canvas');
+      canvas.width=out; canvas.height=out;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, out, out);
+      u.photo=canvas.toDataURL('image/jpeg', 0.9);
+      renderProfile();
+      const av=document.getElementById('topbar-avatar');
+      if(av){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+      closeSheetHard();
+      toast('Profile photo updated.');
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function removeProfilePhoto(){
+  const u=currentUser(); if(!u) return;
+  u.photo=null;
+  renderProfile();
+  const av=document.getElementById('topbar-avatar');
+  if(av){ av.style.background=''; av.textContent=u.id.slice(0,2); }
+  closeSheetHard();
+  toast('Profile photo removed.');
+}
+function renderProfile(){
+  const u=currentUser(); if(!u) return;
+  const av=document.getElementById('profile-avatar');
+  if(u.photo){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+  else { av.style.background=''; av.textContent=u.id.slice(0,2); }
+  document.getElementById('profile-name').textContent=u.name;
+  document.getElementById('profile-uid').textContent=u.id;
+  document.getElementById('profile-mobile').textContent='+91 '+u.mobile;
+  document.getElementById('profile-gmail').textContent=u.gmail;
+  document.getElementById('profile-joined').textContent=fmtDate(u.joined);
+  const active=isProActive(u);
+  document.getElementById('profile-plan').innerHTML = db.payment.enabled
+    ? (active ? `Pro <span class="plan-badge tag-up">${daysLeft(u)}d left</span>` : `Free <span class="plan-badge tag-down">expired</span>`)
+    : `Pro <span class="plan-badge tag-gold">free for now</span>`;
+}
+
+/* ================= TAB NAV ================= */
+function setTab(name){
+  document.querySelectorAll('#shell .screen[data-tab]').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('on'));
+  const navEl=document.getElementById('nav-'+name); if(navEl) navEl.classList.add('on');
+  if(name!=='home') clearInterval(homeTicker);
+  if(name==='home') renderHome();
+  if(name==='strategy') renderStrategy();
+  if(name==='settings') renderSettings();
+}
+
+/* ================= SHELL render ================= */
+function renderShell(){
+  const u=currentUser(); if(!u) return;
+  const av=document.getElementById('topbar-avatar');
+  if(u.photo){ av.style.background=`center/cover url(${u.photo})`; av.textContent=''; }
+  else { av.style.background=''; av.textContent=u.id.slice(0,2); }
+  document.getElementById('topbar-name').textContent=u.name.split(' ')[0];
+  document.getElementById('topbar-uid').textContent=u.id;
+  setTab('home');
+}
+function generateTradeHistory(u){
+  const leverages=[5,10,20,25];
+  const count = 25 + Math.floor(Math.random()*15);
+  const trades=[];
+  for(let i=0;i<count;i++){
+    const coin = COIN_LIST[Math.floor(Math.random()*COIN_LIST.length)];
+    const side = Math.random()>0.5 ? 'Long':'Short';
+    const orderType = 'Futures';
+    const leverage = leverages[Math.floor(Math.random()*leverages.length)];
+    const qty = 1 + Math.floor(Math.random()*5);
+    const entry = +(coin.price*(1+(Math.random()*0.03-0.015))).toFixed(coin.price<1?4:2);
+    const movePct = (Math.random()*0.04-0.018);
+    const exit = +(entry*(1+movePct)).toFixed(coin.price<1?4:2);
+    const pnl = +(((side==='Long'? (exit-entry) : (entry-exit)) * qty * leverage/10)).toFixed(2);
+    const daysAgo = Math.random()*30;
+    const entryTime = Date.now() - daysAgo*86400000 - Math.floor(Math.random()*4)*3600000;
+    const exitTime = entryTime + (15*60000 + Math.floor(Math.random()*6*3600000));
+    trades.push({pair:coin.sym, side, orderType, leverage, qty, entry, exit, pnl, entryTime, exitTime});
+  }
+  trades.sort((a,b)=>b.exitTime-a.exitTime);
+  return trades;
+}
+let homeTicker=null;
+function newPosition(strategy){
+  const coin = COIN_LIST.find(c=>c.sym===strategy.coin) || COIN_LIST[0];
+  const entry = +(coin.price * (1 + (Math.random()*0.01-0.005))).toFixed(coin.price<1?4:2);
+  let side;
+  if(strategy.mood==='buy') side='Long';
+  else if(strategy.mood==='sell') side='Short';
+  else side = Math.random()>0.5 ? 'Long':'Short';
+  const qty = strategy.lotSize || 1;
+  const margin = Math.round(entry * qty * 0.1 * 100)/100;
+  return { pair:coin.sym, orderType:'Futures', side, entry, ltp:entry, qty, margin, key:strategy.id };
+}
+function tickPositions(){
+  const u=currentUser(); if(!u) return;
+  const positions=Object.values(u.positions||{});
+  if(positions.length===0){ clearInterval(homeTicker); return; }
+  positions.forEach(p=>{
+    const drift = p.ltp * (Math.random()*0.006-0.003);
+    p.ltp = +(p.ltp + drift).toFixed(2);
+  });
+  renderPositions();
+  renderAccountSummary();
+}
+function renderHome(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('home-name').textContent=u.name;
+  renderAccountSummary();
+  renderPositions();
+  clearInterval(homeTicker);
+  homeTicker=setInterval(tickPositions, 2500);
+}
+function renderAccountSummary(){
+  const u=currentUser(); if(!u) return;
+  const positions=Object.values(u.positions||{});
+  const active=isProActive(u);
+  const totalUpnl = positions.reduce((s,p)=> s + (p.side==='Long' ? (p.ltp-p.entry) : (p.entry-p.ltp)) * p.qty, 0);
+  const netMargin = positions.reduce((s,p)=> s+p.margin, 0);
+  const accountValue = 100000 + totalUpnl;
+  document.getElementById('home-account-value').textContent = '₹' + accountValue.toLocaleString('en-IN', {maximumFractionDigits:2});
+  document.getElementById('home-net-margin').textContent = '₹' + netMargin.toLocaleString('en-IN');
+  const upnlEl=document.getElementById('home-upnl');
+  upnlEl.textContent = (totalUpnl>=0?'+':'') + '₹' + totalUpnl.toLocaleString('en-IN', {maximumFractionDigits:2});
+  upnlEl.style.color = totalUpnl>=0 ? 'var(--up)' : 'var(--down)';
+  const tag=document.getElementById('home-trading-tag');
+  tag.textContent = active ? 'Live' : 'Bonded';
+  tag.className = 'tag ' + (active ? 'tag-up' : 'tag-down');
+}
+function renderPositions(){
+  const u=currentUser(); if(!u) return;
+  const wrap=document.getElementById('home-positions');
+  const active=isProActive(u);
+  if(!active){
+    wrap.innerHTML = `<div class="card"><div style="font-size:13px;"><b style="color:var(--down)">Trading is bonded.</b><br><span class="hint" style="margin:0;">Recharge your Pro plan to view and run live positions.</span></div>
+      <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="openSheet('sheet-pro')">Recharge</button></div>`;
+    return;
+  }
+  const positions=Object.values(u.positions||{});
+  if(positions.length===0){
+    wrap.innerHTML = `<div class="card empty">No open positions — turn on a strategy to start trading.<br><span style="color:var(--gold); cursor:pointer;" onclick="setTab('strategy')">Go to Strategy →</span></div>`;
+    return;
+  }
+  wrap.innerHTML = positions.map(p=>{
+    const upnl=(p.side==='Long' ? (p.ltp-p.entry) : (p.entry-p.ltp)) * p.qty;
+    const up = upnl>=0;
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="row">
+        <div style="font-weight:700; font-size:14.5px;">${p.pair}</div>
+        <div style="display:flex; gap:6px;">
+          <span class="tag tag-gold">${p.orderType}</span>
+          <span class="tag ${p.side==='Long'?'tag-up':'tag-down'}">${p.side}</span>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry / Current</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">${p.entry} → ${p.ltp}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Lots / Qty</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">${p.qty}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;">
+          <div class="hint">Margin used</div>
+          <div class="mono" style="font-size:13.5px; margin-top:3px;">₹${p.margin.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">uPNL</div>
+          <div class="mono" style="font-size:13.5px; font-weight:700; margin-top:3px; color:${up?'var(--up)':'var(--down)'}">${up?'+':''}₹${upnl.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderStrategy(){
+  const u=currentUser(); if(!u) return;
+  const active=isProActive(u);
+  document.getElementById('strategy-lock-banner').style.display = active ? 'none':'block';
+  const wrap=document.getElementById('strategy-list');
+  if(!u.customStrategies || u.customStrategies.length===0){
+    wrap.innerHTML = `<div class="card empty">No strategies yet.<br><span style="color:var(--gold); cursor:pointer;" onclick="setTab('settings')">Create one in Settings →</span></div>`;
+    return;
+  }
+  wrap.innerHTML='';
+  const periods=[['1m','1M'],['3m','3M'],['6m','6M'],['12m','12M']];
+  u.customStrategies.forEach(s=>{
+    const on=!!s.on;
+    const period = session.backtestPeriod[s.id] || '1m';
+    const bt = s.backtest[period];
+    const btUp = bt.netPnl>=0;
+    const el=document.createElement('div');
+    el.className='card strategy-card';
+    const moodLabel = s.mood==='buy' ? 'Buy only' : s.mood==='sell' ? 'Sell only' : 'Both (Long & Short)';
+    const entrySummary = s.entryRule && s.entryRule.indicator ? `Entry: ${s.entryRule.indicator}` : 'Entry: not set';
+    const exitBits=[];
+    if(s.exitRule){
+      if(s.exitRule.indicator) exitBits.push(s.exitRule.indicator);
+      if(s.exitRule.tpPct) exitBits.push('TP '+s.exitRule.tpPct+'%');
+      if(s.exitRule.slPct) exitBits.push('SL '+s.exitRule.slPct+'%');
+    }
+    const exitSummary = exitBits.length ? 'Exit: '+exitBits.join(' · ') : 'Exit: not set';
+    el.innerHTML=`
+      <div class="row">
+        <div style="max-width:78%;">
+          <div style="font-weight:600; font-size:14.5px;">${s.name}</div>
+          <div class="hint" style="margin-top:3px;">${s.coin} · ${s.timeframe} · ${moodLabel}</div>
+          <div class="hint" style="margin-top:3px;">${(s.indicators||[]).join(', ') || 'No indicators selected'}</div>
+          <div class="hint" style="margin-top:3px;">${entrySummary} · ${exitSummary}</div>
+          <div class="hint" style="margin-top:3px;">Lot size ${s.lotSize}${s.autoReverse?' · Auto reverse':''}</div>
+        </div>
+        <label class="switch ${active?'':'locked'}">
+          <input type="checkbox" ${on?'checked':''} onchange="toggleStrategy('${s.id}', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+      <div class="hint">Backtest</div>
+      <div class="pill-row">
+        ${periods.map(([key,label])=>`<div class="pill ${period===key?'on':''}" onclick="setBacktestPeriod('${s.id}','${key}')">${label}</div>`).join('')}
+      </div>
+      ${renderSparkline(bt.curve)}
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <div style="flex:1;"><div class="hint">Trades</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px;">${bt.trades}</div></div>
+        <div style="flex:1;"><div class="hint">Win rate</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px;">${bt.winRate}%</div></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;"><div class="hint">Net P&amp;L</div><div class="mono" style="font-size:14px; font-weight:700; margin-top:3px; color:${btUp?'var(--up)':'var(--down)'}">${btUp?'+':''}₹${bt.netPnl.toLocaleString('en-IN')}</div></div>
+        <div style="flex:1;"><div class="hint">Max drawdown</div><div class="mono" style="font-size:14px; font-weight:600; margin-top:3px; color:var(--down);">${bt.maxDrawdown}%</div></div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openStrategyBuilder('${s.id}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="resetStrategy('${s.id}')">Reset</button>
+      </div>`;
+    wrap.appendChild(el);
+  });
+}
+function setBacktestPeriod(id, period){
+  session.backtestPeriod[id]=period;
+  renderStrategy();
+}
+function toggleStrategy(id, val){
+  const u=currentUser(); if(!u) return;
+  const strat=u.customStrategies.find(s=>s.id===id); if(!strat) return;
+  if(!isProActive(u)){ toast('Recharge your Pro plan to enable live trading.'); renderStrategy(); return; }
+  strat.on=val;
+  if(!u.positions) u.positions={};
+  if(val){ u.positions[id]=newPosition(strat); }
+  else { delete u.positions[id]; }
+  toast(val ? `${strat.name} turned on.` : `${strat.name} turned off.`);
+}
+
+/* ================= TRADE HISTORY ================= */
+function fmtDateTime(ts){
+  return new Date(ts).toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function toDateInputValue(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function openTradeHistory(){
+  const u=currentUser(); if(!u) return;
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-history').classList.add('active');
+  document.getElementById('th-from').value = toDateInputValue(Date.now()-30*86400000);
+  document.getElementById('th-to').value = toDateInputValue(Date.now());
+  renderTradeHistory(u.tradeHistory);
+}
+function clearTradeHistoryFilter(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('th-from').value='';
+  document.getElementById('th-to').value='';
+  renderTradeHistory(u.tradeHistory);
+}
+function applyTradeHistoryFilter(){
+  const u=currentUser(); if(!u) return;
+  const fromVal=document.getElementById('th-from').value;
+  const toVal=document.getElementById('th-to').value;
+  let list=u.tradeHistory;
+  if(fromVal){ const from=new Date(fromVal+'T00:00:00').getTime(); list=list.filter(t=>t.exitTime>=from); }
+  if(toVal){ const to=new Date(toVal+'T23:59:59').getTime(); list=list.filter(t=>t.exitTime<=to); }
+  renderTradeHistory(list);
+}
+function renderTradeHistory(list){
+  document.getElementById('th-count').textContent=list.length;
+  const net=list.reduce((s,t)=>s+t.pnl,0);
+  const netEl=document.getElementById('th-net');
+  netEl.textContent=(net>=0?'+':'')+'₹'+net.toLocaleString('en-IN',{maximumFractionDigits:2});
+  netEl.style.color= net>=0 ? 'var(--up)' : 'var(--down)';
+  const wrap=document.getElementById('th-list');
+  if(list.length===0){ wrap.innerHTML='<div class="card empty">No trades in this date range.</div>'; return; }
+  wrap.innerHTML=list.map(t=>{
+    const up=t.pnl>=0;
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="row">
+        <div style="font-weight:700; font-size:14.5px;">${t.pair}</div>
+        <div style="display:flex; gap:6px;">
+          <span class="tag tag-gold">${t.orderType}</span>
+          <span class="tag ${t.side==='Long'?'tag-up':'tag-down'}">${t.side}</span>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry / Exit price</div>
+          <div class="mono" style="font-size:13px; margin-top:3px;">${t.entry} → ${t.exit}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Leverage / Lots</div>
+          <div class="mono" style="font-size:13px; margin-top:3px;">${t.leverage}x · ${t.qty}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;">
+          <div class="hint">Entry time</div>
+          <div style="font-size:12px; margin-top:3px;">${fmtDateTime(t.entryTime)}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="hint">Exit time</div>
+          <div style="font-size:12px; margin-top:3px;">${fmtDateTime(t.exitTime)}</div>
+        </div>
+      </div>
+      <div class="divider" style="margin:10px 0;"></div>
+      <div class="row">
+        <div class="hint" style="margin:0;">P&amp;L</div>
+        <div class="mono" style="font-weight:700; color:${up?'var(--up)':'var(--down)'}">${up?'+':''}₹${t.pnl.toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ================= SETTINGS: Delta API + strategy edit ================= */
+function renderSettings(){
+  renderDeltaFields();
+  renderSettingsStrategyList();
+}
+function renderDeltaFields(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('delta-api').value=u.deltaApi||'';
+  document.getElementById('delta-secret').value=u.deltaSecret||'';
+  const connected = !!(u.deltaApi && u.deltaSecret);
+  const tag=document.getElementById('delta-status');
+  tag.textContent = connected ? 'Connected' : 'Not connected';
+  tag.className = 'tag ' + (connected ? 'tag-up' : 'tag-dim');
+}
+function saveDeltaKeys(){
+  const u=currentUser(); if(!u) return;
+  u.deltaApi=val('delta-api'); u.deltaSecret=val('delta-secret');
+  renderDeltaFields();
+  document.getElementById('delta-saved').textContent='Saved.';
+  setTimeout(()=>document.getElementById('delta-saved').textContent='', 2500);
+  toast('Delta Exchange keys saved.');
+}
+function renderSettingsStrategyList(){
+  const u=currentUser(); if(!u) return;
+  const wrap=document.getElementById('settings-strategy-list');
+  const hint=document.getElementById('settings-strategy-hint');
+  if(!u.customStrategies || u.customStrategies.length===0){
+    hint.textContent='No strategies created yet.';
+    wrap.innerHTML='<div class="empty">Tap "New strategy" above to build your first one.</div>';
+    return;
+  }
+  hint.textContent='Tap a strategy below to edit it.';
+  wrap.innerHTML = u.customStrategies.map(s=>`
+    <div class="list-row" onclick="openStrategyBuilder('${s.id}')">
+      <div class="list-left"><div class="ico-box">📊</div><div><div style="font-weight:600; font-size:13.5px;">${s.name}</div><div class="hint" style="margin:1px 0 0;">${s.coin} · ${s.timeframe}</div></div></div>
+      <div>›</div>
+    </div>`).join('');
+}
+
+/* ---- strategy builder (full screen) ---- */
+function uid(){ return 'st_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function generateBacktest(){
+  const periods=[['1m',22],['3m',65],['6m',130],['12m',260]];
+  const bt={};
+  periods.forEach(([key,tradingDays])=>{
+    const trades = Math.round(tradingDays * (0.6 + Math.random()*1.2));
+    const winRate = +(45 + Math.random()*30).toFixed(1);
+    const avgWin = 300 + Math.random()*700;
+    const avgLoss = 200 + Math.random()*400;
+    const wins = Math.round(trades*winRate/100);
+    const losses = trades - wins;
+    const netPnl = Math.round(wins*avgWi
