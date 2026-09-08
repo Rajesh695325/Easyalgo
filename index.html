@@ -1466,3 +1466,342 @@ function generateBacktest(){
     const wins = Math.round(trades*winRate/100);
     const losses = trades - wins;
     const netPnl = Math.round(wins*avgWi
+    const maxDrawdown = +(3 + Math.random()*12).toFixed(1);
+    const points = Math.max(10, Math.min(40, trades));
+    const curve = buildEquityCurve(points, netPnl, maxDrawdown);
+    bt[key] = { trades, winRate, netPnl, maxDrawdown, curve };
+  });
+  return bt;
+}
+function buildEquityCurve(points, netPnl, maxDrawdownPct){
+  const steps=[];
+  let running=0;
+  const drawdownAmount = Math.abs(netPnl || 1000) * (maxDrawdownPct/100) * 3;
+  for(let i=0;i<points;i++){
+    const noise = (Math.random()-0.45) * (drawdownAmount/points) * 3;
+    running += noise;
+    steps.push(running);
+  }
+  // rescale so the curve ends exactly at netPnl, keeping its shape
+  const lastRaw = steps[steps.length-1] || 1;
+  const scale = lastRaw!==0 ? netPnl/lastRaw : 1;
+  return steps.map(v=> +(v*scale).toFixed(2));
+}
+function renderSparkline(curve){
+  const w=280, h=64, pad=4;
+  const vals=[0, ...curve];
+  const min=Math.min(...vals), max=Math.max(...vals);
+  const range=(max-min)||1;
+  const stepX=(w-pad*2)/(vals.length-1);
+  const pts=vals.map((v,i)=>{
+    const x=pad+i*stepX;
+    const y=pad+(1-(v-min)/range)*(h-pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last=vals[vals.length-1];
+  const color = last>=0 ? '#3DDC97' : '#F0576B';
+  const zeroY = pad+(1-(0-min)/range)*(h-pad*2);
+  const areaPts = `${pad},${zeroY} ` + pts.join(' ') + ` ${pad+(vals.length-1)*stepX},${zeroY}`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:64px; display:block; margin-top:8px;">
+    <polyline points="${areaPts}" fill="${color}22" stroke="none"></polyline>
+    <line x1="${pad}" y1="${zeroY.toFixed(1)}" x2="${w-pad}" y2="${zeroY.toFixed(1)}" stroke="#213050" stroke-width="1" stroke-dasharray="3,3"></line>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+  </svg>`;
+}
+function openStrategyBuilder(editId){
+  const u=currentUser(); if(!u) return;
+  session.editingStrategy = editId || null;
+  document.getElementById('sb-err').textContent='';
+  const strat = editId ? u.customStrategies.find(s=>s.id===editId) : null;
+  const entryRule = strat ? strat.entryRule : {};
+  const exitRule = strat ? strat.exitRule : {};
+
+  document.getElementById('sb-title').textContent = strat ? 'Edit strategy' : 'New strategy';
+  document.getElementById('sb-name').value = strat ? strat.name : '';
+  document.getElementById('sb-coin-search').value='';
+  document.getElementById('sb-coin-selected').textContent = strat ? strat.coin : 'None';
+  document.getElementById('sb-coin-selected').dataset.coin = strat ? strat.coin : '';
+  document.getElementById('sb-timeframe').value = strat ? strat.timeframe : '15 min';
+  document.getElementById('sb-auto-reverse').checked = strat ? !!strat.autoReverse : false;
+  document.getElementById('sb-mood').value = strat ? strat.mood : 'both';
+  document.getElementById('sb-lotsize').value = strat ? strat.lotSize : '';
+  document.getElementById('sb-delete-btn').style.display = strat ? 'block':'none';
+
+  document.getElementById('entry-indicator').value = entryRule.indicator || '';
+  document.getElementById('entry-candle-num').value = entryRule.candleNumber || '1';
+  document.getElementById('entry-24h').checked = !!entryRule.use24h;
+  document.getElementById('entry-24h-reset').value = entryRule.resetTime || '00:00';
+  document.getElementById('entry-time-input').value='';
+  toggle24hRow('entry');
+
+  document.getElementById('exit-indicator').value = exitRule.indicator || '';
+  document.getElementById('exit-candle-num').value = exitRule.candleNumber || '1';
+  document.getElementById('exit-24h').checked = !!exitRule.use24h;
+  document.getElementById('exit-24h-reset').value = exitRule.resetTime || '00:00';
+  document.getElementById('exit-time-input').value='';
+  document.getElementById('exit-tp-pct').value = exitRule.tpPct!=null ? exitRule.tpPct : '';
+  document.getElementById('exit-sl-pct').value = exitRule.slPct!=null ? exitRule.slPct : '';
+  toggle24hRow('exit');
+
+  session.builderTimes = { entry: (entryRule.times||[]).slice(), exit: (exitRule.times||[]).slice() };
+  renderRuleTimes('entry');
+  renderRuleTimes('exit');
+
+  renderCoinOptions();
+  renderIndicatorCheckboxes(strat ? strat.indicators : []);
+
+  document.querySelectorAll('#shell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-strategy-builder').classList.add('active');
+}
+function toggle24hRow(prefix){
+  const on=document.getElementById(prefix+'-24h').checked;
+  document.getElementById(prefix+'-24h-row').style.display = on ? 'block':'none';
+}
+function addRuleTime(prefix){
+  const input=document.getElementById(prefix+'-time-input');
+  const t=input.value;
+  if(!t) return;
+  if(!session.builderTimes) session.builderTimes={entry:[],exit:[]};
+  if(!session.builderTimes[prefix].includes(t)) session.builderTimes[prefix].push(t);
+  session.builderTimes[prefix].sort();
+  input.value='';
+  renderRuleTimes(prefix);
+}
+function removeRuleTime(prefix, t){
+  session.builderTimes[prefix] = session.builderTimes[prefix].filter(x=>x!==t);
+  renderRuleTimes(prefix);
+}
+function renderRuleTimes(prefix){
+  const times=(session.builderTimes && session.builderTimes[prefix]) || [];
+  const wrap=document.getElementById(prefix+'-times-list');
+  if(times.length===0){ wrap.innerHTML=''; return; }
+  wrap.innerHTML=times.map(t=>`<span class="tag tag-gold" style="cursor:pointer;" onclick="removeRuleTime('${prefix}','${t}')">${t} ✕</span>`).join('');
+}
+function renderCoinOptions(){
+  const q=document.getElementById('sb-coin-search').value.trim().toUpperCase();
+  const list = COIN_LIST.filter(c=> !q || c.sym.includes(q) || c.name.toUpperCase().includes(q));
+  const box=document.getElementById('sb-coin-list');
+  if(list.length===0){ box.innerHTML='<div class="hint" style="padding:8px 0;">No matching coin.</div>'; return; }
+  box.innerHTML = list.map(c=>`
+    <div class="list-row" style="padding:9px 0;" onclick="selectCoin('${c.sym}')">
+      <div class="list-left"><div>${c.name}</div></div>
+      <div class="mono hint" style="margin:0;">${c.sym}</div>
+    </div>`).join('');
+}
+function selectCoin(sym){
+  const el=document.getElementById('sb-coin-selected');
+  el.textContent=sym; el.dataset.coin=sym;
+  toast(sym+' selected.');
+}
+function renderIndicatorCheckboxes(selected){
+  selected = selected || [];
+  const box=document.getElementById('sb-indicators');
+  box.innerHTML = INDICATOR_LIST.map((ind,i)=>`
+    <div class="row" style="padding:8px 0; ${i<INDICATOR_LIST.length-1?'border-bottom:1px solid var(--line);':''}">
+      <div>${ind}</div>
+      <input type="checkbox" class="sb-ind-check" value="${ind}" ${selected.includes(ind)?'checked':''} style="width:18px; height:18px; accent-color:var(--gold);">
+    </div>`).join('');
+}
+function saveCustomStrategy(){
+  const u=currentUser(); if(!u) return;
+  const err=document.getElementById('sb-err'); err.textContent='';
+  const name=val('sb-name');
+  const coin=document.getElementById('sb-coin-selected').dataset.coin;
+  const timeframe=document.getElementById('sb-timeframe').value;
+  const autoReverse=document.getElementById('sb-auto-reverse').checked;
+  const mood=document.getElementById('sb-mood').value;
+  const lotSize=Number(val('sb-lotsize'));
+  const indicators=Array.from(document.querySelectorAll('.sb-ind-check:checked')).map(c=>c.value);
+
+  const entryRule = {
+    indicator: document.getElementById('entry-indicator').value,
+    candleNumber: document.getElementById('entry-candle-num').value,
+    times: (session.builderTimes && session.builderTimes.entry) || [],
+    use24h: document.getElementById('entry-24h').checked,
+    resetTime: document.getElementById('entry-24h-reset').value || '00:00'
+  };
+  const exitRule = {
+    indicator: document.getElementById('exit-indicator').value,
+    candleNumber: document.getElementById('exit-candle-num').value,
+    times: (session.builderTimes && session.builderTimes.exit) || [],
+    use24h: document.getElementById('exit-24h').checked,
+    resetTime: document.getElementById('exit-24h-reset').value || '00:00',
+    tpPct: val('exit-tp-pct') ? Number(val('exit-tp-pct')) : null,
+    slPct: val('exit-sl-pct') ? Number(val('exit-sl-pct')) : null
+  };
+
+  if(!name){ err.textContent='Strategy name is required.'; return; }
+  if(!coin){ err.textContent='Select a coin.'; return; }
+  if(indicators.length===0){ err.textContent='Select at least one indicator.'; return; }
+  if(!(lotSize>0)){ err.textContent='Enter a valid lot size.'; return; }
+
+  const editId=session.editingStrategy;
+  if(editId){
+    const strat=u.customStrategies.find(s=>s.id===editId);
+    Object.assign(strat, {name, coin, timeframe, autoReverse, mood, lotSize, indicators, entryRule, exitRule});
+    if(strat.on && u.positions[editId]) u.positions[editId]=newPosition(strat);
+  } else {
+    const fields={name, coin, timeframe, autoReverse, mood, lotSize, indicators, entryRule, exitRule};
+    u.customStrategies.push(Object.assign({ id:uid(), on:false, backtest:generateBacktest(), original:JSON.parse(JSON.stringify(fields)) }, fields));
+  }
+  setTab('settings');
+  renderSettingsStrategyList();
+  renderStrategy();
+  toast('Strategy saved.');
+}
+function deleteCustomStrategy(){
+  const u=currentUser(); const editId=session.editingStrategy; if(!u||!editId) return;
+  u.customStrategies = u.customStrategies.filter(s=>s.id!==editId);
+  delete u.positions[editId];
+  setTab('settings');
+  renderSettingsStrategyList();
+  renderStrategy();
+  toast('Strategy deleted.');
+}
+function resetStrategy(id){
+  const u=currentUser(); if(!u) return;
+  const strat=u.customStrategies.find(s=>s.id===id); if(!strat) return;
+  if(!confirm('Reset "'+strat.name+'" back to how it was first saved?')) return;
+  Object.assign(strat, JSON.parse(JSON.stringify(strat.original)));
+  if(strat.on && u.positions[id]) u.positions[id]=newPosition(strat);
+  renderStrategy();
+  toast('Strategy reset to its original settings.');
+}
+
+/* ================= ADMIN render ================= */
+function renderAdmin(){
+  document.getElementById('admin-topbar-line').textContent = db.admin.username + ' · ' + db.admin.mobile;
+  document.getElementById('lk-gmail').value=db.links.gmail;
+  document.getElementById('lk-youtube').value=db.links.youtube;
+  document.getElementById('lk-insta').value=db.links.insta;
+  document.getElementById('lk-fb').value=db.links.fb;
+  document.getElementById('lk-tg').value=db.links.tg;
+  document.getElementById('lk-wa').value=db.links.wa;
+  document.getElementById('pay-enable').checked=db.payment.enabled;
+  document.getElementById('pay-api').value=db.payment.api;
+  document.getElementById('pay-secret').value=db.payment.secret;
+  document.getElementById('pay-webhook').value=db.payment.webhook;
+  document.getElementById('pay-vpa').value=db.payment.vpa;
+  document.getElementById('pay-price').value=db.payment.price;
+  document.getElementById('lk-edit-form').style.display='none';
+  document.getElementById('lk-edit-toggle').textContent='Edit';
+  renderAdminHelpPreview();
+  renderAdminSummary();
+  renderAdminUserList();
+}
+function toggleHelpEdit(){
+  const form=document.getElementById('lk-edit-form');
+  const opening = form.style.display==='none';
+  form.style.display = opening ? 'block':'none';
+  document.getElementById('lk-edit-toggle').textContent = opening ? 'Close' : 'Edit';
+}
+function renderAdminHelpPreview(){
+  const L=db.links;
+  const items=[['✉️','Gmail',L.gmail],['▶️','YouTube',L.youtube],['📸','Instagram',L.insta],['📘','Facebook',L.fb],['✈️','Telegram',L.tg],['💬','WhatsApp',L.wa]];
+  const box=document.getElementById('lk-preview');
+  box.innerHTML=items.map(([ico,label,v])=>`
+    <div class="row" style="padding:8px 0;">
+      <div class="list-left"><div class="ico-box">${ico}</div><div>${label}</div></div>
+      <span class="tag ${v?'tag-up':'tag-dim'}">${v?'Set':'Not set'}</span>
+    </div>`).join('');
+}
+function renderAdminSummary(){
+  document.getElementById('adm-total-users').textContent=db.users.length;
+  document.getElementById('adm-pro-users').textContent=db.users.filter(u=>db.payment.enabled && daysLeft(u)>0).length;
+}
+function renderAdminUserList(){
+  const q=(document.getElementById('adm-search').value||'').trim().toLowerCase();
+  const list=db.users.filter(u=>!q || u.id.toLowerCase().includes(q));
+  const box=document.getElementById('adm-user-list');
+  if(list.length===0){ box.innerHTML='<div class="empty">No users yet — accounts created via sign-up will appear here.</div>'; return; }
+  box.innerHTML=list.map(u=>`
+    <div class="list-row" onclick="openUserDetail('${u.id}')">
+      <div class="list-left">
+        <div class="ico-box mono" style="font-size:11px; ${u.photo?`background:center/cover url(${u.photo});`:''}">${u.photo?'':u.id.slice(0,2)}</div>
+        <div><div style="font-weight:600; font-size:13.5px;">${u.name}</div><div class="hint" style="margin:1px 0 0;">${u.id} · +91 ${u.mobile}</div></div>
+      </div>
+      <span class="tag ${db.payment.enabled ? (daysLeft(u)>0?'tag-up':'tag-dim') : 'tag-gold'}">${db.payment.enabled ? (daysLeft(u)>0?'Pro':'Free') : 'Unlocked'}</span>
+    </div>`).join('');
+}
+let userDetailTimer=null;
+function fmtCountdown(ms){
+  if(ms<=0) return 'Expired';
+  const s=Math.floor(ms/1000);
+  const d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return `${d}d ${h}h ${m}m ${sec}s`;
+}
+function openUserDetail(id){
+  const u=findUser(id); if(!u) return;
+  renderUserDetailBody(u);
+  clearInterval(userDetailTimer);
+  userDetailTimer=setInterval(()=>{
+    const live=document.getElementById('ud-countdown');
+    if(!live || !u.proUntil){ clearInterval(userDetailTimer); return; }
+    live.textContent = fmtCountdown(u.proUntil - Date.now());
+  }, 1000);
+  openSheet('sheet-userdetail');
+}
+function renderUserDetailBody(u){
+  const active=isProActive(u);
+  const photoHtml = u.photo
+    ? `<img src="${u.photo}" style="width:56px; height:56px; border-radius:14px; object-fit:cover; margin:0 auto 10px; display:block; border:1px solid var(--line);">`
+    : `<div class="avatar" style="width:56px; height:56px; font-size:16px; margin:0 auto 10px;">${u.id.slice(0,2)}</div>`;
+  document.getElementById('userdetail-body').innerHTML=`
+    <div class="card" style="text-align:center;">
+      ${photoHtml}
+      <div style="font-weight:700; font-size:17px;">${u.name}</div>
+      <div class="mono" style="color:var(--gold); margin-top:4px;">${u.id}</div>
+    </div>
+    <div class="section-label">Contact</div>
+    <div class="card">
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Mobile</div><div>+91 ${u.mobile}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Gmail</div><div style="text-align:right;">${u.gmail}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Joined</div><div>${fmtDate(u.joined)}</div></div>
+      <div class="divider" style="margin:2px 0;"></div>
+      <div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">Photo</div><div class="hint" style="margin:0;">${u.photo?'Uploaded':'Not uploaded'}</div></div>
+    </div>
+    <div class="section-label">Plan &amp; recharge</div>
+    <div class="card">
+      <div class="row"><div class="hint" style="margin:0;">Status</div><span class="tag ${active?'tag-up':'tag-down'}">${db.payment.enabled ? (active?'Active':'Expired / never paid') : 'Unlocked (free mode)'}</span></div>
+      ${u.proUntil ? `
+      <div class="divider" style="margin:8px 0;"></div>
+      <div class="row" style="padding:2px 0;"><div class="hint" style="margin:0;">Plan ends on</div><div>${new Date(u.proUntil).toLocaleString('en-IN')}</div></div>
+      <div class="row" style="padding:6px 0 0;"><div class="hint" style="margin:0;">Time left</div><div class="mono" id="ud-countdown" style="color:${active?'var(--up)':'var(--down)'}">${fmtCountdown(u.proUntil-Date.now())}</div></div>
+      ` : `<div class="hint" style="margin-top:8px;">No recharge yet — this user hasn't purchased a Pro plan.</div>`}
+    </div>
+    <div class="section-label">Strategies</div>
+    <div class="card">
+      ${(u.customStrategies&&u.customStrategies.length) ? u.customStrategies.map(s=>`<div class="row" style="padding:6px 0;"><div class="hint" style="margin:0;">${s.name} (${s.coin})</div><span class="tag ${s.on?'tag-up':'tag-dim'}">${s.on?'On':'Off'}</span></div>`).join('') : '<div class="hint">No strategies created.</div>'}
+    </div>`;
+}
+function saveLinks(){
+  db.links={gmail:val('lk-gmail'), youtube:val('lk-youtube'), insta:val('lk-insta'), fb:val('lk-fb'), tg:val('lk-tg'), wa:val('lk-wa')};
+  renderAdminHelpPreview();
+  document.getElementById('lk-saved').textContent='Saved — live in Help & Support for all users.';
+  setTimeout(()=>{ document.getElementById('lk-saved').textContent=''; toggleHelpEdit(); }, 900);
+}
+function savePayment(){
+  db.payment={
+    enabled: document.getElementById('pay-enable').checked,
+    api: val('pay-api'), secret: val('pay-secret'), webhook: val('pay-webhook'), vpa: val('pay-vpa'),
+    price: Number(val('pay-price'))||499
+  };
+  document.getElementById('pay-saved').textContent='Saved.';
+  setTimeout(()=>document.getElementById('pay-saved').textContent='', 2500);
+  renderAdminSummary();
+}
+function changeAdminPass(){
+  const p=val('adm-newpass'); if(!p){ return; }
+  db.admin.password=p; document.getElementById('adm-newpass').value='';
+  document.getElementById('adm-pass-saved').textContent='Admin password updated.';
+  setTimeout(()=>document.getElementById('adm-pass-saved').textContent='', 2500);
+}
+function val(id){ return document.getElementById(id).value.trim(); }
+
+/* ================= init ================= */
+setAuthTab('login');
+</script>
+</body>
+</html>
