@@ -666,3 +666,390 @@ td{padding:10px 0; border-top:1px solid var(--line);}
           <div class="hint" style="margin-top:6px;">Demo only — in production, secret keys and webhook handling must live on your server, never in a page users can open.</div>
           <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="savePayment()">Save payment settings</button>
           <div class="hint
+
+        <div class="section-label">Admin credentials</div>
+        <div class="card">
+          <label>Change admin password</label><input id="adm-newpass" type="password" placeholder="New admin password">
+          <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:12px;" onclick="changeAdminPass()">Update password</button>
+          <div class="hint" id="adm-pass-saved" style="text-align:center;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ SHEETS (modals) ============ -->
+<div class="modal-bg" id="modal-bg" onclick="closeAllSheets(event)">
+
+  <div class="modal-sheet" id="sheet-help" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Help &amp; support</h3>
+    <div class="hint" style="margin-bottom:10px;">Reach us on any of these — kept up to date by the EasyAlgo team.</div>
+    <div id="help-links-render"></div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-refer" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Refer &amp; earn</h3>
+    <div class="hint" style="margin-bottom:14px;">Share your code — friends who join with it get you both rewarded.</div>
+    <div class="card" style="text-align:center;">
+      <div class="hint">Your referral code</div>
+      <div class="mono" style="font-size:22px; color:var(--gold); font-weight:700; margin:6px 0;" id="refer-code">—</div>
+    </div>
+    <div class="section-label">Invite via</div>
+    <div class="card">
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('whatsapp')"><div class="ico-box">💬</div><div>WhatsApp</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('telegram')"><div class="ico-box">✈️</div><div>Telegram</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('sms')"><div class="ico-box">✉️</div><div>Messages / SMS</div></div>
+      <div class="social-row" style="cursor:pointer;" onclick="shareVia('copy')"><div class="ico-box">🔗</div><div>Copy invite link</div></div>
+    </div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-pro" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:4px;">Pay for Pro</h3>
+    <div id="pro-body"></div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-photo" style="display:none;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <h3 style="margin-bottom:14px;">Profile photo</h3>
+    <div class="card">
+      <label class="list-row" for="profile-photo-camera" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">📷</div><div>Take photo</div></div><div>›</div>
+      </label>
+      <label class="list-row" for="profile-photo-gallery" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">🖼️</div><div>Choose from gallery</div></div><div>›</div>
+      </label>
+      <div class="list-row" onclick="removeProfilePhoto()" style="cursor:pointer;">
+        <div class="list-left"><div class="ico-box">🗑️</div><div style="color:var(--down);">Remove photo</div></div><div>›</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-sheet" id="sheet-userdetail" style="display:none; max-height:88vh;">
+    <div class="modal-handle"></div>
+    <div class="sheet-close" onclick="closeSheetHard()">✕</div>
+    <div id="userdetail-body"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= STATE (in-memory demo store — a production build would use a real backend/DB) ================= */
+let db = {
+  users: [],        // {id,name,mobile,gmail,password,joined,proUntil,strategies:{...},photo:null}
+  nextLoginNo: 1,
+  admin: { created:false, username:'', mobile:'', password:'' },
+  links: { gmail:'', youtube:'', insta:'', fb:'', tg:'', wa:'' },
+  payment: { enabled:false, api:'', secret:'', vpa:'', webhook:'', price:499 }
+};
+let session = { userId: null, pendingSignup: null, pendingAdminOtp: null, pendingAdminCreate:null, pendingAdminReset:null, editingStrategy:null, backtestPeriod:{}, builderTimes:{entry:[],exit:[]} };
+const ADMIN_MOBILE = '9016334157'; // backend-registered admin number — hardcoded server-side in a real deployment
+const COIN_LIST = [
+  {sym:'BTCUSDT', name:'Bitcoin',  price:65000},
+  {sym:'ETHUSDT', name:'Ethereum', price:3400},
+  {sym:'SOLUSDT', name:'Solana',   price:150},
+  {sym:'BNBUSDT', name:'BNB',      price:580},
+  {sym:'XRPUSDT', name:'XRP',      price:0.55},
+  {sym:'ADAUSDT', name:'Cardano',  price:0.45},
+  {sym:'DOGEUSDT',name:'Dogecoin', price:0.15},
+  {sym:'MATICUSDT',name:'Polygon', price:0.75},
+  {sym:'DOTUSDT', name:'Polkadot', price:6.5},
+  {sym:'LTCUSDT', name:'Litecoin', price:85},
+  {sym:'AVAXUSDT',name:'Avalanche',price:35},
+  {sym:'LINKUSDT',name:'Chainlink',price:14},
+  {sym:'TRXUSDT', name:'TRON',     price:0.12},
+  {sym:'ATOMUSDT',name:'Cosmos',   price:8},
+];
+const INDICATOR_LIST = ['Supertrend','EMA','SMA (Moving Average)','MACD','RSI','Bollinger Bands','VWAP','Stochastic','ADX','Parabolic SAR'];
+
+
+/* ================= helpers ================= */
+function toast(msg, ms=3200){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms);
+}
+function goto(id){
+  document.querySelectorAll('#app > .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function genOtp(){ return String(Math.floor(1000+Math.random()*9000)); }
+function initials(name){
+  return name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,3) || 'US';
+}
+function makeUserId(name){
+  const pad = String(db.nextLoginNo).padStart(4,'0');
+  return initials(name) + pad;
+}
+function findUser(id){ return db.users.find(u=>u.id.toLowerCase()===id.toLowerCase()); }
+function currentUser(){ return findUser(session.userId); }
+function fmtDate(d){ return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function daysLeft(u){
+  if(!u.proUntil) return 0;
+  return Math.max(0, Math.ceil((u.proUntil - Date.now())/86400000));
+}
+function isProActive(u){ return !db.payment.enabled || daysLeft(u) > 0; }
+/* when monetization is off, every account behaves as fully unlocked */
+
+/* ================= AUTH: tabs ================= */
+function setAuthTab(which){
+  document.getElementById('tab-login').classList.toggle('on', which==='login');
+  document.getElementById('tab-signup').classList.toggle('on', which==='signup');
+  document.getElementById('pane-login').style.display = which==='login' ? 'block':'none';
+  document.getElementById('pane-signup').style.display = which==='signup' ? 'block':'none';
+}
+
+/* ================= SIGNUP flow ================= */
+function sendSignupOtps(){
+  const name=document.getElementById('su-name').value.trim();
+  const mobile=document.getElementById('su-mobile').value.trim();
+  const gmail=document.getElementById('su-gmail').value.trim();
+  const err=document.getElementById('su-err1'); err.textContent='';
+  if(!name){ err.textContent='Enter your full name.'; return; }
+  if(!/^\d{10}$/.test(mobile)){ err.textContent='Enter a valid 10-digit mobile number.'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)){ err.textContent='Enter a valid Gmail address.'; return; }
+  if(db.users.some(u=>u.mobile===mobile)){ err.textContent='This mobile number is already registered — log in instead.'; return; }
+  const otpM=genOtp(), otpG=genOtp();
+  const proceed=(photo)=>{
+    session.pendingSignup={name,mobile,gmail,otpM,otpG,photo};
+    document.getElementById('su-step1').style.display='none';
+    document.getElementById('su-step2').style.display='block';
+    document.getElementById('su-otp-mobile-hint').textContent='(demo: '+otpM+')';
+    document.getElementById('su-otp-gmail-hint').textContent='(demo: '+otpG+')';
+    toast(`Demo OTPs — Mobile: ${otpM}  ·  Gmail: ${otpG}`, 6000);
+  };
+  const file=document.getElementById('su-photo').files[0];
+  if(file){
+    const reader=new FileReader();
+    reader.onload=()=>proceed(reader.result);
+    reader.readAsDataURL(file);
+  } else { proceed(null); }
+}
+function backToStep1(){
+  document.getElementById('su-step1').style.display='block';
+  document.getElementById('su-step2').style.display='none';
+}
+function verifySignup(){
+  const p=session.pendingSignup; const err=document.getElementById('su-err2'); err.textContent='';
+  const om=document.getElementById('su-otp-mobile').value.trim();
+  const og=document.getElementById('su-otp-gmail').value.trim();
+  const pass=document.getElementById('su-pass').value;
+  if(om!==p.otpM){ err.textContent='Mobile OTP is incorrect.'; return; }
+  if(og!==p.otpG){ err.textContent='Gmail OTP is incorrect.'; return; }
+  if(!pass || pass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  const id=makeUserId(p.name);
+  const user={ id, name:p.name, mobile:p.mobile, gmail:p.gmail, password:pass, photo:p.photo||null,
+    joined:Date.now(), proUntil:null, deltaApi:'', deltaSecret:'', positions:{},
+    customStrategies: [], tradeHistory:[] };
+  user.tradeHistory = generateTradeHistory(user);
+  db.users.push(user); db.nextLoginNo++;
+  document.getElementById('su-final-id').textContent=id;
+  document.getElementById('su-step2').style.display='none';
+  document.getElementById('su-step3').style.display='block';
+  session.userId=id;
+}
+function enterShell(){
+  ['su-step1','su-step3'].forEach(x=>document.getElementById(x).style.display= x==='su-step1'?'block':'none');
+  document.getElementById('su-step2').style.display='none';
+  document.getElementById('su-name').value=document.getElementById('su-mobile').value=document.getElementById('su-gmail').value='';
+  document.getElementById('su-photo').value='';
+  renderShell();
+  document.getElementById('screen-auth').classList.remove('active');
+  document.getElementById('shell').classList.add('active');
+}
+
+/* ================= LOGIN ================= */
+function doLogin(){
+  const uid=document.getElementById('li-uid').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const err=document.getElementById('li-err'); err.textContent='';
+  const u=findUser(uid);
+  if(!u || u.password!==pass){ err.textContent='Incorrect User ID or password.'; return; }
+  session.userId=u.id;
+  document.getElementById('li-uid').value=document.getElementById('li-pass').value='';
+  renderShell();
+  document.getElementById('screen-auth').classList.remove('active');
+  document.getElementById('shell').classList.add('active');
+}
+function logout(){
+  document.getElementById('shell').classList.remove('active');
+  session.userId=null;
+  clearInterval(homeTicker);
+  goto('screen-auth'); setAuthTab('login');
+  document.getElementById('screen-auth').classList.add('active');
+}
+
+/* ================= ADMIN AUTH ================= */
+function openAdminLogin(){
+  goto('screen-admin-login');
+  setAdminTab('login');
+}
+function setAdminTab(which){
+  document.getElementById('adm-tab-login').classList.toggle('on', which==='login');
+  document.getElementById('adm-tab-create').classList.toggle('on', which==='create');
+  document.getElementById('adm-pane-login').style.display = which==='login' ? 'block':'none';
+  document.getElementById('adm-pane-create').style.display = which==='create' ? 'block':'none';
+  document.getElementById('adm-pane-forgot').style.display = 'none';
+  if(which==='create'){
+    document.getElementById('adc-step1').style.display='block';
+    document.getElementById('adc-step2').style.display='none';
+    document.getElementById('adc-step3').style.display='none';
+  }
+}
+
+/* -- create account (only works for the backend-registered mobile number) -- */
+function sendAdminCreateOtp(){
+  const username=document.getElementById('adc-username').value.trim();
+  const mobile=document.getElementById('adc-mobile').value.trim();
+  const pass=document.getElementById('adc-pass').value;
+  const err=document.getElementById('adc-err1'); err.textContent='';
+  if(db.admin.created){ err.textContent='An admin account already exists — please log in instead.'; return; }
+  if(!username){ err.textContent='Enter a username.'; return; }
+  if(!/^\d{10}$/.test(mobile)){ err.textContent='Enter a valid 10-digit mobile number.'; return; }
+  if(!pass || pass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  if(mobile!==ADMIN_MOBILE){ err.textContent='This mobile number is not the one registered in the backend — no OTP will be sent.'; return; }
+  const otp=genOtp();
+  session.pendingAdminCreate={username, mobile, pass, otp};
+  document.getElementById('adc-step1').style.display='none';
+  document.getElementById('adc-step2').style.display='block';
+  document.getElementById('adc-otp-hint').textContent='(demo: '+otp+')';
+  toast(`Demo OTP sent to ${mobile}: ${otp}`, 6000);
+}
+function verifyAdminCreateOtp(){
+  const p=session.pendingAdminCreate; const err=document.getElementById('adc-err2'); err.textContent='';
+  const otp=document.getElementById('adc-otp').value.trim();
+  if(!p || otp!==p.otp){ err.textContent='Incorrect OTP.'; return; }
+  db.admin={ created:true, username:p.username, mobile:p.mobile, password:p.pass };
+  document.getElementById('adc-otp').value='';
+  document.getElementById('adc-step2').style.display='none';
+  document.getElementById('adc-step3').style.display='block';
+}
+
+/* -- normal login: username + password only, no OTP -- */
+function doAdminLogin(){
+  const username=document.getElementById('adl-username').value.trim();
+  const pass=document.getElementById('adl-pass').value;
+  const err=document.getElementById('adl-err'); err.textContent='';
+  if(!db.admin.created){ err.textContent='No admin account yet — create one first.'; return; }
+  if(username!==db.admin.username || pass!==db.admin.password){ err.textContent='Incorrect username or password.'; return; }
+  document.getElementById('adl-username').value=document.getElementById('adl-pass').value='';
+  renderAdmin();
+  goto('screen-admin');
+}
+
+/* -- forgot password: OTP only goes to the backend-registered number -- */
+function openAdminForgot(){
+  document.getElementById('adm-pane-login').style.display='none';
+  document.getElementById('adm-pane-create').style.display='none';
+  document.getElementById('adm-pane-forgot').style.display='block';
+  document.getElementById('adf-step1').style.display='block';
+  document.getElementById('adf-step2').style.display='none';
+}
+function closeAdminForgot(){ setAdminTab('login'); }
+function sendAdminResetOtp(){
+  const mobile=document.getElementById('adf-mobile').value.trim();
+  const err=document.getElementById('adf-err1'); err.textContent='';
+  if(!db.admin.created){ err.textContent='No admin account exists yet.'; return; }
+  if(mobile!==ADMIN_MOBILE || mobile!==db.admin.mobile){ err.textContent='This mobile number does not match the backend record — no OTP sent.'; return; }
+  const otp=genOtp(); session.pendingAdminReset=otp;
+  document.getElementById('adf-step1').style.display='none';
+  document.getElementById('adf-step2').style.display='block';
+  document.getElementById('adf-otp-hint').textContent='(demo: '+otp+')';
+  toast(`Demo OTP sent to ${mobile}: ${otp}`, 6000);
+}
+function verifyAdminResetOtp(){
+  const otp=document.getElementById('adf-otp').value.trim();
+  const newpass=document.getElementById('adf-newpass').value;
+  const err=document.getElementById('adf-err2'); err.textContent='';
+  if(otp!==session.pendingAdminReset){ err.textContent='Incorrect OTP.'; return; }
+  if(!newpass || newpass.length<4){ err.textContent='Password must be at least 4 characters.'; return; }
+  db.admin.password=newpass;
+  toast('Password reset. Please log in with your new password.');
+  setAdminTab('login');
+}
+function adminLogout(){ goto('screen-auth'); setAuthTab('login'); }
+
+/* ================= SHEETS ================= */
+function openSheet(id){
+  document.querySelectorAll('.modal-sheet').forEach(s=>s.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.getElementById('modal-bg').classList.add('show');
+  if(id==='sheet-help') renderHelpSheet();
+  if(id==='sheet-refer') renderReferSheet();
+  if(id==='sheet-pro') renderProSheet();
+}
+function closeAllSheets(e){
+  if(e.target.id==='modal-bg'){
+    document.getElementById('modal-bg').classList.remove('show');
+    clearInterval(userDetailTimer);
+  }
+}
+function closeSheetHard(){ document.getElementById('modal-bg').classList.remove('show'); clearInterval(userDetailTimer); }
+
+function renderHelpSheet(){
+  const L=db.links;
+  const items=[
+    ['✉️','Email', L.gmail, L.gmail?('mailto:'+L.gmail):null],
+    ['▶️','YouTube', L.youtube, L.youtube],
+    ['📸','Instagram', L.insta, L.insta],
+    ['📘','Facebook', L.fb, L.fb],
+    ['✈️','Telegram', L.tg, L.tg],
+    ['💬','WhatsApp channel', L.wa, L.wa],
+  ];
+  const box=document.getElementById('help-links-render');
+  box.innerHTML = items.map(([ico,label,val,href])=>{
+    if(!val) return `<div class="social-row"><div class="ico-box">${ico}</div><div><div>${label}</div><div class="hint" style="margin:0;">Not set up yet</div></div></div>`;
+    return `<a href="${href}" target="_blank" style="text-decoration:none; color:inherit;"><div class="social-row"><div class="ico-box">${ico}</div><div><div style="color:var(--ink)">${label}</div><div class="hint" style="margin:0;">${val}</div></div></div></a>`;
+  }).join('');
+}
+function renderReferSheet(){
+  const u=currentUser();
+  document.getElementById('refer-code').textContent = u ? u.id : '—';
+}
+function shareVia(kind){
+  const u=currentUser(); if(!u) return;
+  const text=encodeURIComponent(`Trade with me on EasyAlgo! Use my code ${u.id} when you sign up. https://easyalgo.app/join?ref=${u.id}`);
+  if(kind==='whatsapp') window.open(`https://wa.me/?text=${text}`, '_blank');
+  else if(kind==='telegram') window.open(`https://t.me/share/url?url=https://easyalgo.app/join?ref=${u.id}&text=${text}`, '_blank');
+  else if(kind==='sms') window.open(`sms:?body=${text}`, '_blank');
+  else if(kind==='copy'){ toast('Invite link copied (demo).'); }
+}
+function renderProSheet(){
+  const u=currentUser(); if(!u) return;
+  const active=isProActive(u);
+  const body=document.getElementById('pro-body');
+  if(!db.payment.enabled){
+    body.innerHTML = `<div class="card"><div style="font-weight:600;">Everything is free right now 🎉</div><div class="hint" style="margin-top:6px;">The admin hasn't turned on paid plans yet — all strategies are unlocked for every user.</div></div>`;
+    return;
+  }
+  const left=daysLeft(u);
+  body.innerHTML = `
+    <div class="card">
+      <div class="row"><div class="hint" style="margin:0;">Status</div><span class="tag ${active?'tag-up':'tag-down'}">${active?left+' days left':'Expired'}</span></div>
+    </div>
+    <div class="section-label">Pro plan</div>
+    <div class="card">
+      <div class="row"><div style="font-weight:700; font-size:18px;">₹${db.payment.price}<span class="hint" style="margin:0;"> /month</span></div></div>
+      <div class="hint" style="margin-top:6px;">Unlocks live execution on every strategy for 30 days.</div>
+      <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="payForPro()">Pay ₹${db.payment.price} &amp; activate</button>
+      <div class="hint" style="text-align:center; margin-top:8px;">Demo checkout — a live build routes this through the merchant gateway configured by admin.</div>
+    </div>`;
+}
+function payForPro(){
+  const u=currentUser(); if(!u) return;
+  const base = (u.proUntil && u.proUntil>Date.now()) ? u.proUntil : Date.now();
+  u.proUntil = base + 30*86400000;
+  toast('Payment successful — Pro plan activated for 30 days.');
+  renderProSheet(); renderShell();
+}
+
+/* ================= PROFILE screen (as its own tab) =========
