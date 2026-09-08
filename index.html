@@ -348,3 +348,321 @@ td{padding:10px 0; border-top:1px solid var(--line);}
             <div class="row">
               <div style="font-size:13px;"><b style="color:var(--down)">Trading is bonded.</b><br><span class="hint" style="margin:0;">Your Pro plan has ended — recharge to resume live trading.</span></div>
               <button class="btn btn-primary btn-sm" onclick="openSh
+              <button class="btn btn-primary btn-sm" onclick="openSheet('sheet-pro')">Recharge</button>
+            </div>
+          </div>
+          <div class="section-label">Your strategies</div>
+          <div id="strategy-list"></div>
+        </div>
+      </div>
+
+      <!-- ---- SETTINGS ---- -->
+      <div class="screen" id="tab-settings" data-tab="settings">
+        <div class="pad">
+          <h2 style="font-size:19px;">Settings</h2>
+
+          <div class="section-label">Delta Exchange API</div>
+          <div class="card">
+            <div class="row">
+              <div class="hint" style="margin:0;">Connection status</div>
+              <span class="tag tag-dim" id="delta-status">Not connected</span>
+            </div>
+            <div class="divider"></div>
+            <label>API key</label>
+            <input id="delta-api" placeholder="Delta Exchange API key">
+            <label>API secret</label>
+            <input id="delta-secret" type="password" placeholder="Delta Exchange API secret">
+            <div class="hint" style="margin-top:6px;">Used only to place/track trades on your own Delta Exchange account. Anyone with these keys can trade on your account, so keep them private.</div>
+            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="saveDeltaKeys()">Save API keys</button>
+            <div class="hint" id="delta-saved" style="text-align:center;"></div>
+          </div>
+
+          <div class="section-label">Strategy Builder</div>
+          <div class="card" style="margin-bottom:12px;">
+            <div class="list-row" onclick="openStrategyBuilder()" style="border-bottom:none; padding:6px 0;">
+              <div class="list-left"><div class="ico-box">➕</div><div style="font-weight:600;">New strategy</div></div><div>›</div>
+            </div>
+          </div>
+          <div class="hint" style="margin:-4px 0 8px;" id="settings-strategy-hint">Tap a strategy below to edit it.</div>
+          <div class="card" id="settings-strategy-list"></div>
+
+          <div class="section-label">Records</div>
+          <div class="card">
+            <div class="list-row" onclick="openTradeHistory()">
+              <div class="list-left"><div class="ico-box">🧾</div><div>Trade history</div></div><div>›</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- TRADE HISTORY ---- -->
+      <div class="screen" id="tab-history" data-tab="history">
+        <div class="back-row"><div class="back-btn" onclick="setTab('settings')">←</div><div class="screen-title">Trade history</div></div>
+        <div class="pad" style="padding-top:8px;">
+          <div class="card">
+            <label>From</label>
+            <input id="th-from" type="date">
+            <label>To</label>
+            <input id="th-to" type="date">
+            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:14px;" onclick="applyTradeHistoryFilter()">Show trades</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:8px;" onclick="clearTradeHistoryFilter()">Clear filter</button>
+          </div>
+          <div class="card" style="margin-top:14px;">
+            <div class="row"><div class="hint" style="margin:0;">Trades in range</div><div class="mono" id="th-count" style="font-weight:700;">0</div></div>
+            <div class="divider" style="margin:8px 0;"></div>
+            <div class="row"><div class="hint" style="margin:0;">Net P&amp;L</div><div class="mono" id="th-net" style="font-weight:700;">₹0</div></div>
+          </div>
+          <div class="section-label">Trades</div>
+          <div id="th-list"></div>
+        </div>
+      </div>
+
+      <!-- ---- STRATEGY BUILDER ---- -->
+      <div class="screen" id="tab-strategy-builder" data-tab="strategy-builder">
+        <div class="back-row"><div class="back-btn" onclick="setTab('settings')">←</div><div class="screen-title" id="sb-title">New strategy</div></div>
+        <div class="pad" style="padding-top:8px;">
+
+          <label>Strategy name</label>
+          <input id="sb-name" placeholder="e.g. My Supertrend Scalper">
+
+          <label>Coin</label>
+          <input id="sb-coin-search" placeholder="Search — BTC, ETH, SOL…" oninput="renderCoinOptions()">
+          <div class="hint" style="margin-top:6px;">Selected: <span class="mono" id="sb-coin-selected" style="color:var(--gold);">None</span></div>
+          <div class="card" style="margin-top:8px; max-height:180px; overflow-y:auto; padding:6px 10px;" id="sb-coin-list"></div>
+
+          <label style="margin-top:20px;">Indicators <span class="hint" style="margin:0;">(select any number)</span></label>
+          <div class="card" id="sb-indicators" style="padding:6px 10px;"></div>
+
+          <label>Timeframe</label>
+          <select id="sb-timeframe">
+            <option>1 min</option><option>3 min</option><option>5 min</option><option>15 min</option>
+            <option>30 min</option><option>1 hour</option><option>4 hour</option><option>1 day</option>
+          </select>
+
+          <div class="section-label" style="margin-top:22px;">Entry</div>
+          <div class="card">
+            <div class="hint" style="margin-bottom:10px;">e.g. select Supertrend — when a candle closes crossing the Supertrend line and it flips red→green, that's the confirmation; entry is taken at the start of whichever candle you pick below.</div>
+            <label style="margin-top:0;">Confirm with indicator</label>
+            <select id="entry-indicator">
+              <option value="">— select indicator —</option>
+              <option value="Supertrend">Supertrend</option>
+              <option value="EMA">EMA</option>
+              <option value="SMA (Moving Average)">SMA (Moving Average)</option>
+              <option value="MACD">MACD</option>
+              <option value="RSI">RSI</option>
+              <option value="Bollinger Bands">Bollinger Bands</option>
+              <option value="VWAP">VWAP</option>
+              <option value="Stochastic">Stochastic</option>
+              <option value="ADX">ADX</option>
+              <option value="Parabolic SAR">Parabolic SAR</option>
+            </select>
+            <label>Enter on candle #</label>
+            <select id="entry-candle-num">
+              <option value="1">1st candle after confirmation</option>
+              <option value="2">2nd candle after confirmation</option>
+              <option value="3">3rd candle after confirmation</option>
+              <option value="4">4th candle after confirmation</option>
+              <option value="5">5th candle after confirmation</option>
+            </select>
+
+            <label>Time-based entry <span class="hint" style="margin:0;">(optional — add as many as you like)</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="time" id="entry-time-input" style="flex:1;">
+              <button class="btn btn-ghost btn-sm" style="width:auto; padding:10px 14px;" onclick="addRuleTime('entry')">+ Add</button>
+            </div>
+            <div id="entry-times-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+
+            <div class="divider"></div>
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">24-hour High/Low breakout entry</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">Enters as soon as price cuts the rolling 24-hour high or low.</div></div>
+              <label class="switch"><input type="checkbox" id="entry-24h" onchange="toggle24hRow('entry')"><span class="slider"></span></label>
+            </div>
+            <div id="entry-24h-row" style="display:none; margin-top:10px;">
+              <label style="margin-top:0;">24-hour window resets at</label>
+              <input type="time" id="entry-24h-reset">
+            </div>
+          </div>
+
+          <div class="section-label" style="margin-top:22px;">Exit</div>
+          <div class="card">
+            <div class="hint" style="margin-bottom:10px;">Same rule options as Entry — set how this strategy should close an open trade.</div>
+            <label style="margin-top:0;">Confirm with indicator</label>
+            <select id="exit-indicator">
+              <option value="">— select indicator —</option>
+              <option value="Supertrend">Supertrend</option>
+              <option value="EMA">EMA</option>
+              <option value="SMA (Moving Average)">SMA (Moving Average)</option>
+              <option value="MACD">MACD</option>
+              <option value="RSI">RSI</option>
+              <option value="Bollinger Bands">Bollinger Bands</option>
+              <option value="VWAP">VWAP</option>
+              <option value="Stochastic">Stochastic</option>
+              <option value="ADX">ADX</option>
+              <option value="Parabolic SAR">Parabolic SAR</option>
+            </select>
+            <label>Exit on candle #</label>
+            <select id="exit-candle-num">
+              <option value="1">1st candle after confirmation</option>
+              <option value="2">2nd candle after confirmation</option>
+              <option value="3">3rd candle after confirmation</option>
+              <option value="4">4th candle after confirmation</option>
+              <option value="5">5th candle after confirmation</option>
+            </select>
+
+            <label>Time-based exit <span class="hint" style="margin:0;">(optional — add as many as you like)</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="time" id="exit-time-input" style="flex:1;">
+              <button class="btn btn-ghost btn-sm" style="width:auto; padding:10px 14px;" onclick="addRuleTime('exit')">+ Add</button>
+            </div>
+            <div id="exit-times-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+
+            <div class="divider"></div>
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">24-hour High/Low breakout exit</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">Exits as soon as price cuts the rolling 24-hour high or low.</div></div>
+              <label class="switch"><input type="checkbox" id="exit-24h" onchange="toggle24hRow('exit')"><span class="slider"></span></label>
+            </div>
+            <div id="exit-24h-row" style="display:none; margin-top:10px;">
+              <label style="margin-top:0;">24-hour window resets at</label>
+              <input type="time" id="exit-24h-reset">
+            </div>
+
+            <div class="divider"></div>
+            <label style="margin-top:0;">Take profit %</label>
+            <input type="number" id="exit-tp-pct" placeholder="e.g. 70">
+            <label>Stop loss %</label>
+            <input type="number" id="exit-sl-pct" placeholder="e.g. 50">
+          </div>
+
+          <div class="card" style="margin-top:12px;">
+            <div class="row">
+              <div><div style="font-weight:600; font-size:14px;">Auto reverse (both direction)</div>
+                <div class="hint" style="margin-top:3px; max-width:240px;">On an opposite signal, the open trade closes and a new trade opens in the reverse direction — e.g. Supertrend flips green→red: long closes, short opens at the next candle.</div></div>
+              <label class="switch"><input type="checkbox" id="sb-auto-reverse"><span class="slider"></span></label>
+            </div>
+          </div>
+
+          <label style="margin-top:20px;">Trend mood</label>
+          <select id="sb-mood">
+            <option value="buy">Buy signal only (Long)</option>
+            <option value="sell">Sell signal only (Short)</option>
+            <option value="both">Both signals (Long &amp; Short)</option>
+          </select>
+
+          <label>Lot size</label>
+          <input id="sb-lotsize" type="number" placeholder="e.g. 1">
+
+          <div class="err" id="sb-err"></div>
+          <button class="btn btn-primary" style="margin-top:18px;" onclick="saveCustomStrategy()">Save strategy</button>
+          <button class="btn btn-danger" style="margin-top:10px; display:none;" id="sb-delete-btn" onclick="deleteCustomStrategy()">Delete strategy</button>
+        </div>
+      </div>
+
+      <!-- ---- PROFILE ---- -->
+      <div class="screen" id="tab-profile" data-tab="profile">
+        <div class="back-row"><div class="back-btn" onclick="closeProfile()">←</div><div class="screen-title">Profile</div></div>
+        <div class="pad" style="padding-top:8px;">
+          <div class="card" style="text-align:center;">
+            <div style="position:relative; width:76px; margin:0 auto 12px;">
+              <div class="avatar" style="width:76px; height:76px; font-size:20px; cursor:pointer;" id="profile-avatar" onclick="openSheet('sheet-photo')">--</div>
+              <div onclick="openSheet('sheet-photo')" style="position:absolute; bottom:-3px; right:-3px; width:28px; height:28px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; border:2px solid var(--panel);">✏️</div>
+            </div>
+            <div style="font-weight:700; font-size:17px;" id="profile-name">—</div>
+            <div class="mono" style="color:var(--gold); margin-top:4px;" id="profile-uid">—</div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:14px;" onclick="openSheet('sheet-photo')">Change photo</button>
+            <input type="file" id="profile-photo-camera" accept="image/*" capture="environment" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;" onchange="handleProfilePhoto(this)">
+            <input type="file" id="profile-photo-gallery" accept="image/*" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;" onchange="handleProfilePhoto(this)">
+          </div>
+          <div class="section-label">Contact details</div>
+          <div class="card">
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Mobile number</div><div id="profile-mobile">—</div></div>
+            <div class="divider" style="margin:2px 0;"></div>
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Gmail</div><div id="profile-gmail" style="word-break:break-all; text-align:right; max-width:60%;">—</div></div>
+            <div class="divider" style="margin:2px 0;"></div>
+            <div class="row" style="padding:8px 0;"><div class="hint" style="margin:0;">Joined</div><div id="profile-joined">—</div></div>
+          </div>
+          <div class="section-label">Plan</div>
+          <div class="card">
+            <div class="row"><div class="hint" style="margin:0;">Current plan</div><div id="profile-plan">—</div></div>
+          </div>
+          <div class="section-label">More</div>
+          <div class="card">
+            <div class="list-row" onclick="openSheet('sheet-pro')"><div class="list-left"><div class="ico-box">⭐</div><div>Pay for Pro</div></div><div>›</div></div>
+            <div class="list-row" onclick="openSheet('sheet-refer')"><div class="list-left"><div class="ico-box">🎁</div><div>Refer &amp; earn</div></div><div>›</div></div>
+            <div class="list-row" onclick="openSheet('sheet-help')"><div class="list-left"><div class="ico-box">🛟</div><div>Help &amp; support</div></div><div>›</div></div>
+          </div>
+          <div style="height:16px;"></div>
+          <button class="btn btn-danger" onclick="logout()">Log out</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item on" id="nav-home" onclick="setTab('home')"><div class="nav-ico">🏠</div>Home</div>
+      <div class="nav-item" id="nav-strategy" onclick="setTab('strategy')"><div class="nav-ico">📈</div>Strategy</div>
+      <div class="nav-item" id="nav-settings" onclick="setTab('settings')"><div class="nav-ico">⚙️</div>Settings</div>
+    </div>
+  </div>
+
+  <!-- ============ ADMIN SHELL ============ -->
+  <div class="screen" id="screen-admin">
+    <div class="topbar">
+      <div>
+        <div class="uname-mini">Admin panel</div>
+        <div class="uid-mini" id="admin-topbar-line">—</div>
+      </div>
+      <div class="top-right-icons"><span onclick="adminLogout()" style="font-size:13px; color:var(--down); cursor:pointer;">Log out</span></div>
+    </div>
+    <div class="main-scroll" style="padding-bottom:20px;">
+      <div class="pad">
+        <div style="display:flex; gap:10px;">
+          <div class="card" style="flex:1;"><div class="hint">Total users</div><div style="font-size:22px; font-weight:700; margin-top:6px;" id="adm-total-users">0</div></div>
+          <div class="card" style="flex:1;"><div class="hint">Pro plan active</div><div style="font-size:22px; font-weight:700; margin-top:6px;" id="adm-pro-users">0</div></div>
+        </div>
+
+        <div class="section-label">Search user</div>
+        <div class="card">
+          <input id="adm-search" placeholder="Enter User ID, e.g. RN0001" oninput="renderAdminUserList()">
+        </div>
+
+        <div class="section-label">All users</div>
+        <div class="card" id="adm-user-list"></div>
+
+        <div class="row" style="margin-top:22px;">
+          <div class="section-label" style="margin:0;">Help &amp; support</div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleHelpEdit()" id="lk-edit-toggle">Edit</button>
+        </div>
+        <div class="card" id="lk-preview">
+          <!-- filled by renderAdminHelpPreview() -->
+        </div>
+        <div class="card" id="lk-edit-form" style="display:none;">
+          <div class="hint" style="margin-bottom:2px;">Paste the exact link for each. Leave blank to hide it from users.</div>
+          <label>Gmail (support email)</label><input id="lk-gmail" placeholder="support@yourdomain.com">
+          <label>YouTube</label><input id="lk-youtube" placeholder="https://youtube.com/@yourchannel">
+          <label>Instagram</label><input id="lk-insta" placeholder="https://instagram.com/yourhandle">
+          <label>Facebook</label><input id="lk-fb" placeholder="https://facebook.com/yourpage">
+          <label>Telegram</label><input id="lk-tg" placeholder="https://t.me/yourchannel">
+          <label>WhatsApp channel</label><input id="lk-wa" placeholder="https://whatsapp.com/channel/xxxx">
+          <button class="btn btn-primary btn-sm" style="width:100%; margin-top:16px;" onclick="saveLinks()">Save links</button>
+          <div class="hint" id="lk-saved" style="text-align:center;"></div>
+        </div>
+
+        <div class="section-label">Payment / merchant settings</div>
+        <div class="card">
+          <div class="row">
+            <div>
+              <div style="font-weight:600; font-size:14px;">Pro plan monetization</div>
+              <div class="hint" style="margin:2px 0 0;">Off = every feature is free for all users</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="pay-enable" onchange="renderAdminSummary()"><span class="slider"></span></label>
+          </div>
+          <div class="divider"></div>
+          <label>Merchant API key</label><input id="pay-api" placeholder="pk_live_xxxxxxxx">
+          <label>Merchant secret key</label><input id="pay-secret" type="password" placeholder="sk_live_xxxxxxxx">
+          <label>Webhook URL</label><input id="pay-webhook" placeholder="https://yourdomain.com/payment/webhook">
+          <label>UPI VPA / payout ID</label><input id="pay-vpa" placeholder="yourbusiness@upi">
+          <label>Pro plan price (₹ / month)</label><input id="pay-price" type="number" placeholder="499">
+          <div class="hint" style="margin-top:6px;">Demo only — in production, secret keys and webhook handling must live on your server, never in a page users can open.</div>
+          <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="savePayment()">Save payment settings</button>
+          <div class="hint
